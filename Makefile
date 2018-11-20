@@ -9,7 +9,8 @@ TARGET_CLIENT = $(SRC_CLIENT:.cpp=)
 
 all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) $(tests)
 
-# library section
+
+####### library section
 SRC_LIB = parse_options.cpp
 OBJ_LIB = $(SRC_LIB:.cpp=.o)
 TARGET_LIB = libhw9.so
@@ -18,11 +19,15 @@ LIB_FLAGS = -L. -lhw9
 $(TARGET_LIB): $(OBJ_LIB)
 	$(CXX) -o $@ $^ $(LDFLAGS)
 
-# tests
-tests: tests/process_arguments
+
+######## tests section
+SRC_TESTS = tests/process_arguments.cpp
+TARGET_TESTS = $(SRC_TESTS:.cpp=)
+tests: $(TARGET_TESTS)
 tests/process_arguments: tests/process_arguments.cpp $(TARGET_LIB)
 	$(CXX) -o $@ $^ $(CXXFLAGS) $(LIB_FLAGS)
 
+# misc
 .PHONY : clean all tests
 clean :
-	-rm $(TARGET_CLIENT) $(TARGET_SERVER) $(TARGET_LIB) $(OBJ_LIB)
+	-rm $(TARGET_CLIENT) $(TARGET_SERVER) $(TARGET_LIB) $(OBJ_LIB) $(TARGET_TESTS)
