@@ -1,9 +1,8 @@
 #include <iostream>
-#include "../parse_options.hpp"
+#include "../parse_arguments.hpp"
 
 using namespace std;
 
-//struct Options;
 Options process_arguments(int argc, char **argv, bool is_client);
 
 void print_struct_opt(Options opts) {
@@ -11,7 +10,8 @@ void print_struct_opt(Options opts) {
         << "port:\t" << opts.port << endl
         << "num:\t" << opts.num << endl
         << "block:\t" << opts.block << endl
-        << "fork:\t" << opts.fork << endl;
+        << "fork:\t" << opts.fork << endl 
+        << endl;
 }
 
 int main(int argc, char *argv[]) {

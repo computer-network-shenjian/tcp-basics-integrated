@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <string>
 #include <unistd.h>
 #include <sys/types.h> 
 #include <sys/socket.h>
@@ -12,27 +13,18 @@
 #include <thread>
 #include <chrono>
 #include <fcntl.h>  // setting non-blocking socket option
+#include "parse_arguments.hpp"
+#include "shared_library.hpp"
 
 using namespace std;
 
-// get sockaddr. Supports IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
-    if (sa->sa_family == AF_INET) {
-        return &(((struct sockaddr_in*)sa)->sin_addr);
-    }
+//void *get_in_addr(struct sockaddr *sa);
+//int server_bind_port(int listener, int listen_port);
 
-    return &(((struct sockaddr_in6*)sa)->sin6_addr);
-}
+int main(int argc, char *argv[]) {
+    Options opt = process_arguments(argc, argv, false);
 
-int main(int argc, char *argv[])
-{
-    if (argc != 2) {
-        cerr << "Usage: " << argv[0] << " listen_port\n";
-        exit(1);
-    }
-
-    int listen_port = stoi(argv[1]);
+    int listen_port = stoi(opt.port);
 
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listener < 0) {
@@ -45,23 +37,18 @@ int main(int argc, char *argv[])
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
     // set nonblocking listener
-    fcntl(listener, F_SETFL, O_NONBLOCK);
+    if (opt.block)
+        fcntl(listener, F_SETFL, O_NONBLOCK);
     
-    // bind with select
-    sockaddr_in listen_addr {};
-    listen_addr.sin_family = AF_INET;
-    listen_addr.sin_port = htons(listen_port);
-    listen_addr.sin_addr.s_addr = INADDR_ANY;
-
-    if (bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr)) == -1) {
-        perror("bind");
-        exit(4);
+    // bind
+    if (server_bind_port(listener, listen_port) == -1) {
+        graceful("bind", 1);
     }
 
     cout << "Listening on port " << listen_port << " on all interfaces...\n";
 
-    // begin listening
-    listen(listener,10);
+    // set listening
+    listen(listener,50);
 
     // accept with select
     // prepare variables used by select()

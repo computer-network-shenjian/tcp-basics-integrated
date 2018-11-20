@@ -1,5 +1,4 @@
 CXXFLAGS = -std=c++11 -fPIC -Wall -Wextra
-LDFLAGS = -shared
 
 SRC_SERVER = server.cpp
 SRC_CLIENT = client.cpp
@@ -7,27 +6,39 @@ SRC_CLIENT = client.cpp
 TARGET_SERVER = $(SRC_SERVER:.cpp=)
 TARGET_CLIENT = $(SRC_CLIENT:.cpp=)
 
+
+TARGET_LIB = libhw9.so
+
+
+SRC_TESTS = $(wildcard tests/*.cpp)
+TARGET_TESTS = $(patsubst tests/%.cpp,tests/%,$(SRC_TESTS))
+.tests: $(TARGET_TESTS) # prepend a dot to avoid setting default
+
 all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) $(tests)
 
 
+####### binary section
+$(TARGET_SERVER): $(TARGET_LIB)
+
+
 ####### library section
-SRC_LIB = parse_options.cpp
+SRC_LIB = parse_arguments.cpp shared_library.cpp
+HEADER_LIB = $(SRC_LIB:.cpp=.hpp)
 OBJ_LIB = $(SRC_LIB:.cpp=.o)
-TARGET_LIB = libhw9.so
 LIB_FLAGS = -L. -lhw9
 
-$(TARGET_LIB): $(OBJ_LIB)
-	$(CXX) -o $@ $^ $(LDFLAGS)
+$(TARGET_LIB): $(OBJ_LIB) $(HEADER_LIB)
+	$(CXX) $(LDFLAGS) $(CXXFLAGS) -shared -o $@ $^
 
 
 ######## tests section
-SRC_TESTS = tests/process_arguments.cpp
-TARGET_TESTS = $(SRC_TESTS:.cpp=)
-tests: $(TARGET_TESTS)
-tests/process_arguments: tests/process_arguments.cpp $(TARGET_LIB)
-	$(CXX) -o $@ $^ $(CXXFLAGS) $(LIB_FLAGS)
+tests/%: tests/%.cpp $(TARGET_LIB)
+	$(CXX) $(CXXFLAGS) $(LIB_FLAGS) -o $@ $<
 
-# misc
+
+######## misc
 .PHONY : clean all tests
 clean :
-	-rm $(TARGET_CLIENT) $(TARGET_SERVER) $(TARGET_LIB) $(OBJ_LIB) $(TARGET_TESTS)
+	-rm $(TARGET_SERVER) $(TARGET_CLIENT)
+	-rm $(OBJ_LIB) $(TARGET_LIB)
+	-rm $(OBJ_TESTS) $(TARGET_TESTS)
