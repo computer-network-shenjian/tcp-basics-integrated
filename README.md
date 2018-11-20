@@ -36,4 +36,4 @@ test finished
 
 ```
 
-You see the elegance of test driven development? It's as easy as that. Please write rigid test when possible!
+You see the elegance of test driven development? It's as easy as that. Please write rigid tests when possible!
