@@ -39,5 +39,5 @@ test finished
 You see the elegance of test driven development? It's as easy as that. Please write rigid tests when possible!
 
 ### More about TDD
-![](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
-![](http://alexott.net/en/cpp/CppTestingIntro.html)
+![http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
+![http://alexott.net/en/cpp/CppTestingIntro.html](http://alexott.net/en/cpp/CppTestingIntro.html)
