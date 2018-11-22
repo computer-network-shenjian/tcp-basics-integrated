@@ -1,7 +1,7 @@
 # tcp-basics-integrated
 
 ## Makefile logic
-The code base consists of mainly three parts: the ./server and ./client binary executables, `libhw9.so` dynamic library that contains all reusable code, and test cases in `tests/` with the same file names as the function each test case targets at.
+The code base consists of mainly three parts: the ./server and ./client binary executables, `libhw9.so` dynamic library that contains all reusable code, and test cases in `tests/` with file names corresponding to the function each test case targets at.
 
 The makefile generates object files for each library source file before linking them together to avoid the recompilation of code that isn't modified.
 
@@ -39,5 +39,6 @@ test finished
 You see the elegance of test driven development? It's as easy as that. Please write rigid tests when possible!
 
 ### More about TDD
-![http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
-![http://alexott.net/en/cpp/CppTestingIntro.html](http://alexott.net/en/cpp/CppTestingIntro.html)
+[http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
+
+[http://alexott.net/en/cpp/CppTestingIntro.html](http://alexott.net/en/cpp/CppTestingIntro.html)

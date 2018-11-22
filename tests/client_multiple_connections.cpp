@@ -16,18 +16,6 @@
 
 using namespace std;
 
-int loop_client_fork(Options opt) {
-    // can be either blocking or non-blocking
-
-}
-
-int loop_client_nofork(Options opt) {
-    // must be non-blocking otherwise simultaneous connections can't be handled
-
-}
-
-
-
 int main(int argc, char *argv[]) {
 
     // process arguments
@@ -41,6 +29,8 @@ int main(int argc, char *argv[]) {
     // how can the loop possibly return?
     return 0;
 }
+
+
 
 
 
