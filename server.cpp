@@ -18,10 +18,61 @@
 
 using namespace std;
 
-//void *get_in_addr(struct sockaddr *sa);
-//int server_bind_port(int listener, int listen_port);
+int get_listener(Options opt) {
+    // Precondition: the port field and block field of opt is properly set
+    // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
+
+    int listen_port = stoi(opt.port);
+
+    int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (listener < 0) 
+        graceful("socket", 1);
+
+    // lose the pesky "address already in use" error message
+    int yes = 1;
+    setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
+
+    // set nonblocking listener
+    if (opt.block)
+        fcntl(listener, F_SETFL, O_NONBLOCK);
+    
+    // bind
+    if (server_bind_port(listener, listen_port) == -1) 
+        graceful("bind", 2);
+
+    cout << "Listening on port " << listen_port << " on all interfaces...\n";
+
+    // set listening
+    listen(listener,50);
+
+    return listener;
+}
+
 
 int main(int argc, char *argv[]) {
+
+    // process arguments
+    Options opt = process_arguments(argc, argv, false);
+
+    int listener = get_listener(opt.port);
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+// old main function, for reference
+int main_reference(int argc, char *argv[]) {
     Options opt = process_arguments(argc, argv, false);
 
     int listen_port = stoi(opt.port);
