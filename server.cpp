@@ -19,6 +19,7 @@
 using namespace std;
 
 int get_listener(Options opt) {
+    // socket(), set blocking/nonblocking, bind(), listen()
     // Precondition: the port field and block field of opt is properly set
     // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
 
@@ -48,15 +49,32 @@ int get_listener(Options opt) {
     return listener;
 }
 
+int loop_server_fork(Options opt) {
+    // can be either blocking or non-blocking
+
+}
+
+int loop_server_nofork(Options opt) {
+    // must be non-blocking otherwise simultaneous connections can't be handled
+
+}
 
 int main(int argc, char *argv[]) {
 
     // process arguments
     Options opt = process_arguments(argc, argv, false);
 
+    // socket(), set blocking/nonblocking, bind(), listen()
     int listener = get_listener(opt.port);
 
+    if (opt.fork)
+        loop_server_fork(opt);
+    else
+        loop_server_nofork(opt);
 
+    // how can the loop possibly return?
+    close(listener);
+    return 0;
 }
 
 
