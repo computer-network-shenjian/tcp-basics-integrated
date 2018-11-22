@@ -11,11 +11,52 @@
 #include <fcntl.h>  // for setting non-blocking socket option
 #include <thread>
 #include <chrono>
+#include "parse_arguments.hpp"
+#include "shared_library.hpp"
 
 using namespace std;
 
-int main(int argc, char *argv[])
-{
+int loop_client_fork(Options opt) {
+    // can be either blocking or non-blocking
+
+}
+
+int loop_client_nofork(Options opt) {
+    // must be non-blocking otherwise simultaneous connections can't be handled
+
+}
+
+
+
+int main(int argc, char *argv[]) {
+
+    // process arguments
+    Options opt = parse_arguments(argc, argv, true);
+
+    if (opt.fork)
+        loop_client_fork(opt);
+    else
+        loop_client_nofork(opt);
+
+    // how can the loop possibly return?
+    return 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+int main_reference(int argc, char *argv[]) {
     if (argc != 4) {
        cerr << "Usage: " << argv[0] << "hostname port1 port2\n";
        exit(EXIT_FAILURE);

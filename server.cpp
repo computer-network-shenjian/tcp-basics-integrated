@@ -49,6 +49,18 @@ int get_listener(Options opt) {
     return listener;
 }
 
+int server_bind_port(int listener, int listen_port) {
+    // this function binds socket listener to listen_port on all interfaces
+    // Precondition: listener is a valid ipv4 socket and listen_port is free
+    // Postconfition: socket listener is bound to listen_port on all interfaces
+    sockaddr_in listen_addr {};
+    listen_addr.sin_family = AF_INET;
+    listen_addr.sin_port = htons(listen_port);
+    listen_addr.sin_addr.s_addr = INADDR_ANY;
+    return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
+}
+
+
 int loop_server_fork(Options opt) {
     // can be either blocking or non-blocking
 
@@ -62,7 +74,7 @@ int loop_server_nofork(Options opt) {
 int main(int argc, char *argv[]) {
 
     // process arguments
-    Options opt = process_arguments(argc, argv, false);
+    Options opt = parse_arguments(argc, argv, false);
 
     // socket(), set blocking/nonblocking, bind(), listen()
     int listener = get_listener(opt.port);
