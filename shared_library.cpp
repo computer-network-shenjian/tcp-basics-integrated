@@ -3,8 +3,7 @@
 using namespace std;
 
 // get sockaddr. Supports IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
+void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
@@ -60,7 +59,7 @@ int loop_server_nofork(int listener, Options opt) {
     int fdmax = listener;          // maximum file descriptor number
 
     // main loop
-    // TODO: setup queueing machanism
+    // TODO: setup queueing mechanism
     int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
@@ -99,7 +98,18 @@ int loop_server_nofork(int listener, Options opt) {
 
 int server_communicate(int socketfd, bool block) {
     // debug
-    std::cout << "server_communicate\n";
+    std::cout << "server_communicate" << std::endl;
+    char buffer[255];
+    int nbytes = recv(socketfd, buffer, 20, 0);
+    std::cout << nbytes << std::endl;
+
+    // return -1 if the connection is closed
+    return -1;
+}
+
+int client_communicate(int socketfd, bool block) {
+    // debug
+    std::cout << "client_communicate" << std::endl;
     char buffer[255];
     int nbytes = recv(socketfd, buffer, 20, 0);
     std::cout << nbytes << std::endl;

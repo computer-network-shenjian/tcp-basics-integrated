@@ -42,6 +42,14 @@ int server_communicate(int socketfd, bool block);
     // not implemented
     // remember to handle partial sends here
 
+int client_communicate(int socketfd, bool block);
+    // exchange messages with server according to the protocol
+    // Precondition: a connection is already established on socketfd
+    // Postcondition: a sequence of messages are exchanged with the server,
+    // abording connection if network error is encountered.
+
+    // not implemented
+    // remember to handle partial sends here
 
 // client specific
 int loop_client_nofork(Options opt);
