@@ -56,15 +56,15 @@ int loop_server_fork(int listener, const Options &opt) {
         if (num_connections >= opt.num) {
             // saturated
             wait();
+            num_connections--;
         } else {
-            server_accept_client(listener, false, master, fdmax);
+            int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
             if (fork() == 0) {
                 // in child
-                client_communicate();
-
+                client_communicate(newfd, opt);
             } else {
                 // in parent
-
+                num_connections++;
             }
         }
     }
@@ -97,7 +97,7 @@ int loop_server_nofork(int listener, const Options &opt) {
                         if (i == listener) {
                             // handle new connections;
                             if (opt.num - num_connections > 0) {
-                                server_accept_client(listener, opt.block, master, fdmax);
+                                server_accept_client(listener, opt.block, &master, &fdmax);
                                 num_connections++;
                             }
                         } else {
@@ -114,7 +114,7 @@ int loop_server_nofork(int listener, const Options &opt) {
     }
 }
 
-int server_communicate(int socketfd, Options opt) {
+int server_communicate(int socketfd, const Options &opt) {
     // debug
     std::cout << "server_communicate" << std::endl;
 
@@ -143,7 +143,7 @@ int server_communicate(int socketfd, Options opt) {
     return -1;
 }
 
-int client_communicate(int socketfd, Options opt) {
+int client_communicate(int socketfd, const Options &opt) {
     // debug
     std::cout << "client_communicate" << std::endl;
     char buffer[BUFFER_LEN];
