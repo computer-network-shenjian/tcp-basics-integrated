@@ -46,3 +46,24 @@ You see the elegance of test driven development? It's as easy as that. Please wr
 [http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
 
 [http://alexott.net/en/cpp/CppTestingIntro.html](http://alexott.net/en/cpp/CppTestingIntro.html)
+
+## Notes
+
+### 第二节
+
+1. 将交互内容写成文件，怎么写？（涉及比对，比对的要求是什么“一对同名文件”） -> 见第三节
+2. 注意：任何一步收到的数据错误则中断连接，并请求重连
+3. 多个连接的处理，既可以是fork子进程方式，也可以由一个主进程处理全部连接，我们怎么做？ -> 都写
+4. 每个连接的方式，既可以是阻塞，也可以是非阻塞，我们怎么做？ -> 都写
+
+### 第三节
+
+1. 注意：不准发尾0，处理方法一律strlen
+2. 注意：Client发进程所有者的学号是网络序
+3. 二进制比较，用diff
+
+### 测试
+
+1. 可以用随机数生成来决定按一定概率的故意传错
+2. 限制并发个数，讨论ing -> 队列处理
+3. Server写成类mariaDB的二层守护进程（父亲只负责看儿子，儿子做实事）
