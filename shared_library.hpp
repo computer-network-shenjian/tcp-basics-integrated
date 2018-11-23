@@ -29,7 +29,7 @@ int loop_server_fork(int listener, Options opt);
     // can be either blocking or non-blocking
 
 int loop_server_nofork(int listener, Options opt);
-    // must be non-blocking otherwise simultaneous connections can't be handled
+    // must be non-blocking (parse_arguments handled blocking)
 
 int server_accept_client(int listener, bool block, fd_set &master, int &fdmax);
 
@@ -44,5 +44,7 @@ int server_communicate(int socketfd, bool block);
 
 
 // client specific
-int loop_client_nofork(Options opt);
-int loop_client_fork(Options opt);
+int client_nofork(Options opt);
+// must be non-blocking 
+int client_fork(Options opt);
+// can be either blocking or non-blocking
