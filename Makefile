@@ -17,7 +17,7 @@ RM := rm -f
 
 .tests: $(TARGET_TESTS) # prepend a dot to avoid setting default
 
-all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) $(tests)
+all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) .tests
 
 
 ####### binary section
