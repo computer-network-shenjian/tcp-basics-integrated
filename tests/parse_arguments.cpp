@@ -3,7 +3,7 @@
 
 using namespace std;
 
-Options parse_arguments(int argc, char **argv, bool is_client);
+Options process_arguments(int argc, char **argv, bool is_client);
 
 void print_struct_opt(Options opts) {
     cout << "ip:\t" << opts.ip << endl
@@ -18,11 +18,11 @@ int main(int argc, char *argv[]) {
     Options opts;
 
     cout << "is_client = true\n";
-    opts = parse_arguments(argc, argv, true);
+    opts = process_arguments(argc, argv, true);
     print_struct_opt(opts);
 
     cout << "is_client = false\n";
-    opts = parse_arguments(argc, argv, false);
+    opts = process_arguments(argc, argv, false);
     print_struct_opt(opts);
 
     cout << "test finished\n";
