@@ -32,8 +32,17 @@ int get_listener(Options opt) {
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
     // set nonblocking listener
-    if (opt.block)
-        fcntl(listener, F_SETFL, O_NONBLOCK);
+    if (opt.block) {
+        int val = fcntl(listener, F_GETFL, 0);
+        if (val < 0) {
+            close(listener);
+            graceful_return("fcntl, GETFL", -2);
+        }
+        if (fcntl(listener, F_SETFL, val|O_NONBLOCK) < 0) {
+            close(listener);
+            graceful_return("fcntl, SETFL", -3);
+        }
+    }
 
     // bind
     if (server_bind_port(listener, listen_port) == -1)
@@ -129,8 +138,17 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
         graceful("server_accept_new_client", 7);
     } else {
         // set non-blocking connection
-        if (block)
-            fcntl(newfd, F_SETFL, O_NONBLOCK);
+        if (block) {
+            int val = fcntl(newfd, F_GETFL, 0);
+            if (val < 0) {
+                close(newfd);
+                graceful_return("fcntl, GETFL", -2);
+            }
+            if (fcntl(newfd, F_SETFL, val|O_NONBLOCK) < 0) {
+                close(newfd);
+                graceful_return("fcntl, SETFL", -3);
+            }            
+        }
 
         // add to the set
         FD_SET(newfd, &master); // add to master set
