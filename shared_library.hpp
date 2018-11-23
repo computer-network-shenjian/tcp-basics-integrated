@@ -35,10 +35,12 @@ int get_listener(const Options &opt);
 int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
+
 int loop_server_nofork(int listener, const Options &opt);
     // must be non-blocking otherwise simultaneous connections can't be handled
 
 int server_accept_client(int listener, bool block, fd_set *master, int *fdmax);
+
 
 int server_communicate(int socketfd, const Options &opt);
     // exchange messages with client according to the protocol
@@ -59,9 +61,13 @@ int client_communicate(int socketfd, const Options &opt);
     // remember to handle partial sends here
 
 // client specific
-int loop_client_nofork(const Options &opt);
-int loop_client_fork(const Options &opt);
+int client_nofork(const Options &opt);
+// must be non-blocking 
+int client_fork(const Options &opt);
+// can be either blocking or non-blocking
+
 int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds);
     // return 1 means ready to send
     // return -1: select error
     // return -2: server offline
+

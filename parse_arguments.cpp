@@ -11,7 +11,10 @@ void print_help(bool is_client) {
 Options parse_arguments(int argc, char **argv, bool is_client=false) {
     std::vector<std::string> arguments;
     Options opts;
-
+	
+	if(is_client)
+		opts.num_options = 5;
+		
     for (int i = 1; i < argc; ++i)
         arguments.push_back(argv[i]);
 
@@ -53,8 +56,11 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
             break;
         }
     }
+    // --nofork & --block, block is invalid
+    if(!opts.fork && opts.block)
+        opts.block = false;
 
-    if (num_options < opts.num_options) {
+    if (num_options > opts.num_options) {
         std::cerr << "Wrong number of options. Seen " << num_options << " options\n";
         print_help(is_client);
         exit(1);
