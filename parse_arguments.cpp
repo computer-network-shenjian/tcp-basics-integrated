@@ -56,6 +56,9 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
             break;
         }
     }
+    // --nofork & --block, block is invalid
+    if(!opts.fork && opts.block)
+        opts.block = false;
 
     if (num_options > opts.num_options) {
         std::cerr << "Wrong number of options. Seen " << num_options << " options\n";
