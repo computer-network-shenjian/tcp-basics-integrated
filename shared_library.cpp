@@ -109,9 +109,27 @@ int loop_server_nofork(int listener) {
 int server_communicate(int socketfd) {
     // debug
     std::cout << "server_communicate" << std::endl;
-    char buffer[MAX_RECVLEN];
-    int nbytes = recv(socketfd, buffer, 20, 0);
-    std::cout << nbytes << std::endl;
+
+	fd_set readfds, writefds;
+	struct timeval tv;
+
+    char buffer[BUFFER_LEN];
+
+    // server write string "StuNo"
+
+    // server read int as student number, network byte order
+
+    // server write string "pid"
+
+    // server read int as client's pid, network byte order
+
+    // server write string "TIME"
+
+    // server read client's time as a string with a fixed length of 19 bytes
+
+    // server write string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
+
+    // server read a random string with 
 
     // return -1 if the connection is closed
     return -1;
@@ -120,7 +138,7 @@ int server_communicate(int socketfd) {
 int client_communicate(int socketfd) {
     // debug
     std::cout << "client_communicate" << std::endl;
-    char buffer[MAX_RECVLEN];
+    char buffer[BUFFER_LEN];
     int nbytes = recv(socketfd, buffer, 20, 0);
     std::cout << nbytes << std::endl;
 

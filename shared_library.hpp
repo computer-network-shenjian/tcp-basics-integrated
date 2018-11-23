@@ -6,7 +6,8 @@
 #include <iostream>
 #include <unistd.h> // read
 
-#define MAX_RECVLEN 1024
+#define MAX_RECVLEN 32768
+#define BUFFER_LEN 100000
 
 // gracefully perror and exit
 #define graceful(s, x) {\
