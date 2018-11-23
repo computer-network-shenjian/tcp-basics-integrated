@@ -13,7 +13,6 @@
 #include <thread>
 #include <chrono>
 #include <fcntl.h>  // setting non-blocking socket option
-#include "parse_arguments.hpp"
 #include "shared_library.hpp"
 
 using namespace std;
