@@ -21,15 +21,15 @@ using namespace std;
 int main(int argc, char *argv[]) {
 
     // process arguments
-    opt = parse_arguments(argc, argv, false); // assign to the global variable
+    Options opt = parse_arguments(argc, argv, false);
 
     // socket(), set blocking/nonblocking, bind(), listen()
-    int listener = get_listener();
+    int listener = get_listener(opt);
 
     if (opt.fork)
-        loop_server_fork(listener);
+        loop_server_fork(listener, opt);
     else
-        loop_server_nofork(listener);
+        loop_server_nofork(listener, opt);
 
     // how can the loop possibly return?
     close(listener);

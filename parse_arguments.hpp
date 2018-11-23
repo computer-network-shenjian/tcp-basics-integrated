@@ -13,8 +13,6 @@ struct Options {
     bool fork = false;  // fork/nofork. defaults to nonblock
 };
 
-Options opt; // global options variable
-
 Options parse_arguments(int argc, char **argv, bool is_client);
 
 #endif // PARSE_ARGUMENTS_H
