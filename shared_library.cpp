@@ -21,7 +21,7 @@ int server_bind_port(int listener, int listen_port) {
 }
 
 
-int get_listener(Options opt) {
+int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
 
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -49,18 +49,35 @@ int get_listener(Options opt) {
 }
 
 
-int loop_server_fork(int listener, Options opt) {
+int loop_server_fork(int listener, const Options &opt) {
+    int num_connections = 0;
 
+    // main loop
+    for (;;) {
+        if (num_connections >= opt.num) {
+            // saturated
+            wait();
+        } else {
+            server_accept_client(listener, false, master, fdmax);
+            if (fork() == 0) {
+                // in child
+                client_communicate();
+
+            } else {
+                // in parent
+
+            }
+        }
+    }
 }
 
-int loop_server_nofork(int listener, Options opt) {
+int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
     fd_set master, readfds;      // master file descriptor list
     FD_SET(listener, &master);
     int fdmax = listener;          // maximum file descriptor number
 
     // main loop
-    // TODO: setup queueing machanism
     int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
@@ -77,6 +94,7 @@ int loop_server_nofork(int listener, Options opt) {
             default:
                 for (int i = 0; i <= fdmax; i++) {
                     if (FD_ISSET(i, &readfds)) { // we got one
+                        FD_CLR(i, &readfds);
                         if (i == listener) {
                             // handle new connections;
                             if (opt.num - num_connections > 0) {
@@ -85,7 +103,7 @@ int loop_server_nofork(int listener, Options opt) {
                             }
                         } else {
                             // handle data
-                            if (server_communicate(i, opt.block) == -1) {
+                            if (server_communicate(i, opt) == -1) {
                                 num_connections--;
                                 close(i); FD_CLR(i, &master);
                             }
@@ -97,10 +115,39 @@ int loop_server_nofork(int listener, Options opt) {
     }
 }
 
-int server_communicate(int socketfd, bool block) {
+int server_communicate(int socketfd, Options opt) {
     // debug
-    std::cout << "server_communicate\n";
-    char buffer[255];
+    std::cout << "server_communicate" << std::endl;
+
+	fd_set readfds, writefds;
+	struct timeval tv;
+
+    char buffer[BUFFER_LEN];
+
+    // server write string "StuNo"
+
+    // server read int as student number, network byte order
+
+    // server write string "pid"
+
+    // server read int as client's pid, network byte order
+
+    // server write string "TIME"
+
+    // server read client's time as a string with a fixed length of 19 bytes
+
+    // server write string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
+
+    // server read a random string with 
+
+    // return -1 if the connection is closed
+    return -1;
+}
+
+int client_communicate(int socketfd, Options opt) {
+    // debug
+    std::cout << "client_communicate" << std::endl;
+    char buffer[BUFFER_LEN];
     int nbytes = recv(socketfd, buffer, 20, 0);
     std::cout << nbytes << std::endl;
 
@@ -108,7 +155,7 @@ int server_communicate(int socketfd, bool block) {
     return -1;
 }
 
-int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
+int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
     // Accept connections from listener and insert them to the fd_set.
 
     struct sockaddr_storage remoteaddr; // client address
@@ -119,13 +166,25 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
         graceful("server_accept_new_client", 7);
     } else {
         // set non-blocking connection
-        if (block)
-            fcntl(newfd, F_SETFL, O_NONBLOCK);
+        if (block) {
+            int val = fcntl(newfd, F_GETFL, 0);
+            if (val < 0) {
+                close(newfd);
+                graceful_return("fcntl, GETFL", -2);
+            }
+            if (fcntl(newfd, F_SETFL, val|O_NONBLOCK) < 0) {
+                close(newfd);
+                graceful_return("fcntl, SETFL", -3);
+            }            
+        }
 
-        // add to the set
-        FD_SET(newfd, &master); // add to master set
-        if (newfd > fdmax)      // keep track of the max
-            fdmax = newfd;
+        if (master != NULL && fdmax != NULL) { // if using select
+            // add to the set
+            FD_SET(newfd, master); // add to master set
+            if (newfd > *fdmax)      // keep track of the max
+                *fdmax = newfd;
+        }
+
 
         char remoteIP[INET6_ADDRSTRLEN];
         std::cout << "New connection from " << inet_ntop(remoteaddr.ss_family,
@@ -138,12 +197,12 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
 }
 
 
-int loop_client_fork(Options opt) {
+int loop_client_fork(const Options &opt) {
     // can be either blocking or non-blocking
 
 }
 
-int loop_client_nofork(Options opt) {
+int loop_client_nofork(const Options &opt) {
     // must be non-blocking otherwise simultaneous connections can't be handled
 
 }
