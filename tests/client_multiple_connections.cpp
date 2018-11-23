@@ -11,107 +11,22 @@
 #include <fcntl.h>  // for setting non-blocking socket option
 #include <thread>
 #include <chrono>
-#include <errno.h>
 #include "../parse_arguments.hpp"
 #include "../shared_library.hpp"
 
 using namespace std;
-
-
-struct sockaddr_in   servaddr;
-char recvline[MAXWORD], sendline[MAXWORD];
-int 	sockfd;
-fd_set  fds;
-int     flags, error = -1, slen = sizeof(int);
-
-int creat_connection(Options opt)
-{
-	if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
-		graceful("socket", -2);
-
-	//nonblock
-	if(!opt.block)
-	{
-		flags = fcntl(sockfd, F_GETFL, 0);
-		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);	
-
-		if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-		{
-			//EINPROGRESS means connection is in progress
-			if(errno != EINPROGRESS)
-				graceful("connect", -3);
-
-			FD_ZERO(&fds);		
-			FD_SET(sockfd, &fds);		
-			int select_rtn;
-
-			if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0)
-			{
-				getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
-				//error == 0 means connect succeeded
-				if(error)
-					graceful("connect", -3);
-			}
-		}
-		//connect succeed	
-	}
-	//block
-	else
-	{
-		if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-			graceful("connect", -3);
-	}
-	/*
-		communication
-	*/
-
-	/*
-		SO_LINGER check
-	*/
-	close(sockfd);
-}
-
-int client_nofork(Options opt)
-{
-	error = -1;
-	for(int i=0; i<opt.num; i++)
-		creat_connection(opt);
-}
-
-int client_fork(Options opt)
-{
-	error = -1;
-	for(int i=0; i<opt.num; i++)
-	{
-		pid_t fpid;
-		fpid = fork();
-		if(fpid < 0)
-			graceful("fork", -10);
-		else if(fpid == 0)
-			creat_connection(opt);
-		else
-			continue;
-	}
-	/*
-		handle signal from child proccess
-	*/
-}
 
 int main(int argc, char *argv[]) {
 
     // process arguments
     Options opt = parse_arguments(argc, argv, true);
 
-   	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(stoi(opt.port));
-	if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
-		graceful("Invalid ip", -1);
-
     if (opt.fork)
-        client_fork(opt);
+        loop_client_fork(opt);
     else
-        client_nofork(opt);
+        loop_client_nofork(opt);
+
+    // how can the loop possibly return?
     return 0;
 }
 
