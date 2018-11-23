@@ -6,7 +6,8 @@
 #include <iostream>
 #include <unistd.h> // read
 
-#define MAX_RECVLEN 1024
+#define MAX_RECVLEN 32768
+#define BUFFER_LEN 100000
 
 // gracefully perror and exit
 void graceful(char *s, int x) { perror(s); exit(x); }
@@ -38,7 +39,7 @@ int loop_server_nofork(int listener, const Options &opt);
 
 int server_accept_client(int listener, bool block, fd_set &master, int &fdmax);
 
-int server_communicate(int socketfd, bool block);
+int server_communicate(int socketfd, Options opt);
     // exchange messages with client according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the client,
@@ -47,7 +48,7 @@ int server_communicate(int socketfd, bool block);
     // not implemented
     // remember to handle partial sends here
 
-int client_communicate(int socketfd, bool block);
+int client_communicate(int socketfd, Options opt);
     // exchange messages with server according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the server,
