@@ -34,8 +34,10 @@ int get_listener(const Options &opt);
 int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
+
 int loop_server_nofork(int listener, const Options &opt);
     // must be non-blocking otherwise simultaneous connections can't be handled
+
 
 int server_accept_client(int listener, bool block, fd_set &master, int &fdmax);
 
@@ -58,5 +60,8 @@ int client_communicate(int socketfd, Options opt);
     // remember to handle partial sends here
 
 // client specific
-int loop_client_nofork(const Options &opt);
-int loop_client_fork(const Options &opt);
+int client_nofork(const Options &opt);
+// must be non-blocking 
+int client_fork(const Options &opt);
+// can be either blocking or non-blocking
+
