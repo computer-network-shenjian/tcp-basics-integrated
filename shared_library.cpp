@@ -79,7 +79,7 @@ int loop_server_nofork(int listener, Options opt) {
                     if (FD_ISSET(i, &readfds)) { // we got one
                         if (i == listener) {
                             // handle new connections;
-                            if (max_connections - num_connections > 0) {
+                            if (opt.num - num_connections > 0) {
                                 server_accept_client(listener, opt.block, master, fdmax);
                                 num_connections++;
                             }
@@ -108,7 +108,7 @@ int server_communicate(int socketfd, bool block) {
     return -1;
 }
 
-int server_accept_new_client(int listener, bool block, fd_set &master, int &fdmax) {
+int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
     // Accept connections from listener and insert them to the fd_set.
 
     struct sockaddr_storage remoteaddr; // client address

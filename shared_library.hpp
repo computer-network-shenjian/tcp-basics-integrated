@@ -31,7 +31,7 @@ int loop_server_fork(int listener, Options opt);
 int loop_server_nofork(int listener, Options opt);
     // must be non-blocking otherwise simultaneous connections can't be handled
 
-int server_accept_new_client(int listener, bool block, fd_set &master, int &fdmax);
+int server_accept_client(int listener, bool block, fd_set &master, int &fdmax);
 
 int server_communicate(int socketfd, bool block);
     // exchange messages with client according to the protocol
