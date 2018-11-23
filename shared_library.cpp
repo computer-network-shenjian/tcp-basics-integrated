@@ -85,6 +85,7 @@ int loop_server_nofork(int listener, Options opt) {
             default:
                 for (int i = 0; i <= fdmax; i++) {
                     if (FD_ISSET(i, &readfds)) { // we got one
+                        FD_CLR(i, &readfds);
                         if (i == listener) {
                             // handle new connections;
                             if (opt.num - num_connections > 0) {
@@ -105,7 +106,7 @@ int loop_server_nofork(int listener, Options opt) {
     }
 }
 
-int server_communicate(int socketfd, bool block) {
+int server_communicate(int socketfd) {
     // debug
     std::cout << "server_communicate" << std::endl;
     char buffer[MAX_RECVLEN];
@@ -116,7 +117,7 @@ int server_communicate(int socketfd, bool block) {
     return -1;
 }
 
-int client_communicate(int socketfd, bool block) {
+int client_communicate(int socketfd) {
     // debug
     std::cout << "client_communicate" << std::endl;
     char buffer[MAX_RECVLEN];
@@ -127,7 +128,7 @@ int client_communicate(int socketfd, bool block) {
     return -1;
 }
 
-int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
+int server_accept_client(int listener, fd_set &master, int &fdmax) {
     // Accept connections from listener and insert them to the fd_set.
 
     struct sockaddr_storage remoteaddr; // client address
@@ -138,7 +139,7 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
         graceful("server_accept_new_client", 7);
     } else {
         // set non-blocking connection
-        if (block) {
+        if (opt.block) {
             int val = fcntl(newfd, F_GETFL, 0);
             if (val < 0) {
                 close(newfd);
