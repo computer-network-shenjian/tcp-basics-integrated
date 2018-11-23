@@ -1,4 +1,4 @@
-#include <arpa/inet.h> 
+#include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 
@@ -14,8 +14,9 @@ void *get_in_addr(struct sockaddr *sa);
 int server_bind_port(int listener, int listen_port);
 int get_listener(Options opt);
 
-int loop_server_fork(Options opt);
-int loop_server_nofork(Options opt);
+int loop_server_fork(int listener, Options opt);
+int loop_server_nofork(int listener, Options opt);
+int server_accept_new_client();
 
 
 // client specific

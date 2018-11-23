@@ -4,10 +4,10 @@
 #include <string.h>
 #include <string>
 #include <unistd.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <arpa/inet.h> 
+#include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <netdb.h>
 #include <thread>
@@ -27,9 +27,9 @@ int main(int argc, char *argv[]) {
     int listener = get_listener(opt.port);
 
     if (opt.fork)
-        loop_server_fork(opt);
+        loop_server_fork(listener, opt);
     else
-        loop_server_nofork(opt);
+        loop_server_nofork(listener, opt);
 
     // how can the loop possibly return?
     close(listener);
@@ -66,7 +66,7 @@ int main_reference(int argc, char *argv[]) {
     // set nonblocking listener
     if (opt.block)
         fcntl(listener, F_SETFL, O_NONBLOCK);
-    
+
     // bind
     if (server_bind_port(listener, listen_port) == -1) {
         graceful("bind", 1);
@@ -112,7 +112,6 @@ int main_reference(int argc, char *argv[]) {
     char buf_read[buf_read_size+1];
 
     // client info storage
-    char remoteIP[INET6_ADDRSTRLEN]; 
     timeval tv = {1, 0}; // only send when the timer is up
     for(;;) {
         readfds = master; // copy at the last minutes
@@ -160,12 +159,13 @@ int main_reference(int argc, char *argv[]) {
                                 if (newfd > fdmax)      // keep track of the max
                                     fdmax = newfd;
 
+                                char remoteIP[INET6_ADDRSTRLEN];
                                 cout << "New connection from " << inet_ntop(remoteaddr.ss_family,
-                                                                    get_in_addr((struct sockaddr*) &remoteaddr),                                                   
+                                                                    get_in_addr((struct sockaddr*) &remoteaddr),
                                                                     remoteIP, INET6_ADDRSTRLEN)
                                      << " on socket " << newfd << endl;
                             }
-                        } else { 
+                        } else {
                             // handle data from a client
                             nbytes = recv(i, buf_read, buf_read_size, 0);
                             if (nbytes <= 0) {
