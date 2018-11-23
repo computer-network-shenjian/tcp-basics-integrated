@@ -99,7 +99,7 @@ int loop_server_nofork(int listener, Options opt) {
 int server_communicate(int socketfd, bool block) {
     // debug
     std::cout << "server_communicate" << std::endl;
-    char buffer[255];
+    char buffer[MAX_RECVLEN];
     int nbytes = recv(socketfd, buffer, 20, 0);
     std::cout << nbytes << std::endl;
 
@@ -110,7 +110,7 @@ int server_communicate(int socketfd, bool block) {
 int client_communicate(int socketfd, bool block) {
     // debug
     std::cout << "client_communicate" << std::endl;
-    char buffer[255];
+    char buffer[MAX_RECVLEN];
     int nbytes = recv(socketfd, buffer, 20, 0);
     std::cout << nbytes << std::endl;
 

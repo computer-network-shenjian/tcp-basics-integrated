@@ -6,9 +6,17 @@
 #include <iostream>
 #include <unistd.h> // read
 
+#define MAX_RECVLEN 1024
+
+// gracefully perror and exit
 #define graceful(s, x) {\
     perror((s));\
     exit((x)); }
+
+// gracefully perror and return
+#define graceful_return(s, x) {\
+    perror((s));\
+    return((x)); }
 
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
