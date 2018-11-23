@@ -85,7 +85,7 @@ int loop_server_nofork(int listener, Options opt) {
                             }
                         } else {
                             // handle data
-                            if (server_communicate(i, opt.block) == -1) {
+                            if (server_communicate(i, opt) == -1) {
                                 num_connections--;
                                 close(i); FD_CLR(i, &master);
                             }
@@ -97,7 +97,7 @@ int loop_server_nofork(int listener, Options opt) {
     }
 }
 
-int server_communicate(int socketfd, bool block) {
+int server_communicate(int socketfd, Options opt) {
     // debug
     std::cout << "server_communicate" << std::endl;
 
@@ -126,7 +126,7 @@ int server_communicate(int socketfd, bool block) {
     return -1;
 }
 
-int client_communicate(int socketfd) {
+int client_communicate(int socketfd, Options opt) {
     // debug
     std::cout << "client_communicate" << std::endl;
     char buffer[BUFFER_LEN];

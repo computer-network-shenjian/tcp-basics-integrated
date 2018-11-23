@@ -42,7 +42,7 @@ int loop_server_nofork(int listener, Options opt);
 
 int server_accept_client(int listener, bool block, fd_set &master, int &fdmax);
 
-int server_communicate(int socketfd, bool block);
+int server_communicate(int socketfd, Options opt);
     // exchange messages with client according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the client,
@@ -51,7 +51,7 @@ int server_communicate(int socketfd, bool block);
     // not implemented
     // remember to handle partial sends here
 
-int client_communicate(int socketfd, bool block);
+int client_communicate(int socketfd, Options opt);
     // exchange messages with server according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the server,
