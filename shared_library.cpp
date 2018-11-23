@@ -98,6 +98,11 @@ int loop_server_nofork(int listener, Options opt) {
 }
 
 int server_communicate(int socketfd, Options opt) {
+    // return -1: select error
+    // return -2: server offline
+    // return -3: ready_to_send error
+    // return -4: send error
+    // return -5: message sent is of wrong quantity of byte
     // debug
     std::cout << "server_communicate" << std::endl;
 
@@ -106,24 +111,54 @@ int server_communicate(int socketfd, Options opt) {
 
     char buffer[BUFFER_LEN];
 
-    // server write string "StuNo"
+    int val_send_ready, val_send;
+    // server send a string "StuNo"
+    val_send_ready = ready_to_send(socketfd, &readfds, &writefds);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("server offline", -2);
+        }
+        else {
+            graceful_return("ready_to_send", -3);
+        }
+    }
+    std::string str_1 = "StuNo";
+    val_send = send(socketfd, str_1.c_str(), str_1.length(), MSG_NOSIGNAL);
+    if (val_send != str_1.length()) {
+        if (errno == EPIPE) {
+            graceful_return("server offline", -2);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -4);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -5);
+        }
+    }
 
-    // server read int as student number, network byte order
+    // server recv an int as student number, network byte order
 
-    // server write string "pid"
+    // server send a string "pid"
 
-    // server read int as client's pid, network byte order
+    // server recv an int as client's pid, network byte order
 
-    // server write string "TIME"
+    // server send a string "TIME"
 
-    // server read client's time as a string with a fixed length of 19 bytes
+    // server recv client's time as a string with a fixed length of 19 bytes
 
-    // server write string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
+    // server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
 
-    // server read a random string with 
+    // server recv a random string with length *****, and each character is in ASCII 0~255.
 
-    // return -1 if the connection is closed
-    return -1;
+    // server send a string "end"
+
+    // after server catch that client is closed, close s/c socket, write file
+
+    // return 0 as success
+    return 0;
 }
 
 int client_communicate(int socketfd, Options opt) {
@@ -184,4 +219,24 @@ int loop_client_fork(Options opt) {
 int loop_client_nofork(Options opt) {
     // must be non-blocking otherwise simultaneous connections can't be handled
 
+}
+
+int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds) {
+    // return 1 means ready to send
+    // return -1: select error
+    // return -2: server offline
+    FD_ZERO(readfds);
+    FD_ZERO(writefds);
+    FD_SET(socketfd, readfds);
+    FD_SET(socketfd, writefds);
+    if (select(socketfd+1, readfds, writefds, NULL, NULL) < 0) {
+        graceful_return("select", -1);
+    }
+	else if (FD_ISSET(socketfd, readfds) && FD_ISSET(socketfd, writefds)) {
+		close(socketfd);
+		graceful_return("server offline", -2);
+	}
+    else {
+        return 1;
+    }
 }

@@ -5,6 +5,7 @@
 #include <fcntl.h>  // setting non-blocking socket option
 #include <iostream>
 #include <unistd.h> // read
+#include <errno.h>
 
 #define MAX_RECVLEN 32768
 #define BUFFER_LEN 100000
@@ -63,3 +64,7 @@ int client_communicate(int socketfd, Options opt);
 // client specific
 int loop_client_nofork(Options opt);
 int loop_client_fork(Options opt);
+int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds);
+    // return 1 means ready to send
+    // return -1: select error
+    // return -2: server offline
