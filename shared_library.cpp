@@ -20,7 +20,7 @@ int server_bind_port(int listener, int listen_port) {
 }
 
 
-int get_listener(Options opt) {
+int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
 
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -48,18 +48,35 @@ int get_listener(Options opt) {
 }
 
 
-int loop_server_fork(int listener, Options opt) {
+int loop_server_fork(int listener, const Options &opt) {
+    int num_connections = 0;
 
+    // main loop
+    for (;;) {
+        if (num_connections >= opt.num) {
+            // saturated
+            wait();
+        } else {
+            server_accept_client(listener, false, master, fdmax);
+            if (fork() == 0) {
+                // in child
+                client_communicate();
+
+            } else {
+                // in parent
+
+            }
+        }
+    }
 }
 
-int loop_server_nofork(int listener, Options opt) {
+int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
     fd_set master, readfds;      // master file descriptor list
     FD_SET(listener, &master);
     int fdmax = listener;          // maximum file descriptor number
 
     // main loop
-    // TODO: setup queueing mechanism
     int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
@@ -119,7 +136,7 @@ int client_communicate(int socketfd) {
     return -1;
 }
 
-int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
+int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
     // Accept connections from listener and insert them to the fd_set.
 
     struct sockaddr_storage remoteaddr; // client address
@@ -142,10 +159,13 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
             }            
         }
 
-        // add to the set
-        FD_SET(newfd, &master); // add to master set
-        if (newfd > fdmax)      // keep track of the max
-            fdmax = newfd;
+        if (master != NULL && fdmax != NULL) { // if using select
+            // add to the set
+            FD_SET(newfd, master); // add to master set
+            if (newfd > *fdmax)      // keep track of the max
+                *fdmax = newfd;
+        }
+
 
         char remoteIP[INET6_ADDRSTRLEN];
         std::cout << "New connection from " << inet_ntop(remoteaddr.ss_family,
@@ -158,12 +178,12 @@ int server_accept_client(int listener, bool block, fd_set &master, int &fdmax) {
 }
 
 
-int loop_client_fork(Options opt) {
+int loop_client_fork(const Options &opt) {
     // can be either blocking or non-blocking
 
 }
 
-int loop_client_nofork(Options opt) {
+int loop_client_nofork(const Options &opt) {
     // must be non-blocking otherwise simultaneous connections can't be handled
 
 }
