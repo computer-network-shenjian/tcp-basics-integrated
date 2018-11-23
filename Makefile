@@ -1,17 +1,20 @@
-CXXFLAGS = -std=c++11 -fPIC -Wall -Wextra
+CXXFLAGS := -std=c++11 -fPIC -Wall -Wextra
 
-SRC_SERVER = server.cpp
-SRC_CLIENT = client.cpp
+SRC_SERVER := server.cpp
+SRC_CLIENT := client.cpp
 
-TARGET_SERVER = $(SRC_SERVER:.cpp=)
-TARGET_CLIENT = $(SRC_CLIENT:.cpp=)
-
-
-TARGET_LIB = libhw9.so
+TARGET_SERVER := $(SRC_SERVER:.cpp=)
+TARGET_CLIENT := $(SRC_CLIENT:.cpp=)
 
 
-SRC_TESTS = $(wildcard tests/*.cpp)
-TARGET_TESTS = $(patsubst tests/%.cpp,tests/%,$(SRC_TESTS))
+TARGET_LIB := libhw9.so
+
+
+SRC_TESTS := $(wildcard tests/*.cpp)
+TARGET_TESTS := $(patsubst tests/%.cpp,tests/%,$(SRC_TESTS))
+
+RM := rm -f
+
 .tests: $(TARGET_TESTS) # prepend a dot to avoid setting default
 
 all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) .tests
@@ -39,6 +42,6 @@ tests/%: tests/%.cpp $(TARGET_LIB)
 ######## misc
 .PHONY : clean all tests
 clean :
-	-rm $(TARGET_SERVER) $(TARGET_CLIENT)
-	-rm $(OBJ_LIB) $(TARGET_LIB)
-	-rm $(OBJ_TESTS) $(TARGET_TESTS)
+	$(RM) $(TARGET_SERVER) $(TARGET_CLIENT)
+	$(RM) $(OBJ_LIB) $(TARGET_LIB)
+	$(RM) $(OBJ_TESTS) $(TARGET_TESTS)
