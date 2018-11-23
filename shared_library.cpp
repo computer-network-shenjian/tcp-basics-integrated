@@ -20,7 +20,7 @@ int server_bind_port(int listener, int listen_port) {
 }
 
 
-int get_listener(Options opt) {
+int get_listener() {
     int listen_port = stoi(opt.port);
 
     int listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -57,11 +57,11 @@ int get_listener(Options opt) {
 }
 
 
-int loop_server_fork(int listener, Options opt) {
+int loop_server_fork(int listener) {
 
 }
 
-int loop_server_nofork(int listener, Options opt) {
+int loop_server_nofork(int listener) {
     // prepare variables used by select()
     fd_set master, readfds;      // master file descriptor list
     FD_SET(listener, &master);
@@ -167,12 +167,12 @@ int server_accept_client(int listener, fd_set &master, int &fdmax) {
 }
 
 
-int loop_client_fork(Options opt) {
+int loop_client_fork() {
     // can be either blocking or non-blocking
 
 }
 
-int loop_client_nofork(Options opt) {
+int loop_client_nofork() {
     // must be non-blocking otherwise simultaneous connections can't be handled
 
 }
