@@ -30,169 +30,170 @@ int  	client_send_num;	//communication step 8
 
 
 
-unsigned char * creatRandomString()
-{
-	unsigned char *p;
-	p = (unsigned char *)malloc(client_send_num + 1);
+// unsigned char * creatRandomString()
+// {
+// 	unsigned char *p;
+// 	p = (unsigned char *)malloc(client_send_num + 1);
 
-	srand( (unsigned)time(NULL) );
-	for(int i=0; i<=client_send_num; i++)
-		p[i] = rand()%256;
+// 	srand( (unsigned)time(NULL) );
+// 	for(int i=0; i<=client_send_num; i++)
+// 		p[i] = rand()%256;
 	
-	p[client_send_num] = '\0';
-	return p;
-}
+// 	p[client_send_num] = '\0';
+// 	return p;
+// }
 
-int _recv(int sockfd, fd_set &rfds, char *expecline, int cmp_len, const Options &opt)
-{
-	int n, select_rtn;
-	char recvline[BUFFER_LEN];
-	/*
-		nonblock/block not implemented
-	*/
-	FD_ZERO(&rfds);		
-	FD_SET(sockfd, &rfds);	
-	if((select_rtn = select(sockfd+1, &rfds, NULL, NULL, NULL)) == -1)
-		graceful("client_recv select", -4);
+// int _recv(int sockfd, fd_set &rfds, char *expecline, int cmp_len, const Options &opt)
+// {
+// 	int n, select_rtn;
+// 	char recvline[BUFFER_LEN];
+// 	/*
+// 		nonblock/block not implemented
+// 	*/
+// 	FD_ZERO(&rfds);		
+// 	FD_SET(sockfd, &rfds);	
+// 	if((select_rtn = select(sockfd+1, &rfds, NULL, NULL, NULL)) == -1)
+// 		graceful("client_recv select", -4);
 
-	if((n = recv(sockfd, recvline, 20, MSG_DONTWAIT)) == -1)
-		graceful("client_recv recv", -5);
+// 	if((n = recv(sockfd, recvline, 20, MSG_DONTWAIT)) == -1)
+// 		graceful("client_recv recv", -5);
 
-	recvline[n] = '\0';
-	printf("recv return: %d    message: %s\n", n, recvline);		
+// 	recvline[n] = '\0';
+// 	printf("recv return: %d    message: %s\n", n, recvline);		
 	
-	//comparing failed: strlen not equal
-	if(strlen(recvline) != strlen(expecline))
-		return -1;
+// 	//comparing failed: strlen not equal
+// 	if(strlen(recvline) != strlen(expecline))
+// 		return -1;
 
-	//comparing only first cmp_len words of expecline
-	char cmp_1[100], cmp_2[100];
-	memcpy(cmp_1, expecline, cmp_len);
-	cmp_1[cmp_len] = '\0';
-	memcpy(cmp_2, recvline, cmp_len);
-	cmp_2[cmp_len] = '\0';
+// 	//comparing only first cmp_len words of expecline
+// 	char cmp_1[100], cmp_2[100];
+// 	memcpy(cmp_1, expecline, cmp_len);
+// 	cmp_1[cmp_len] = '\0';
+// 	memcpy(cmp_2, recvline, cmp_len);
+// 	cmp_2[cmp_len] = '\0';
 
-	if(!strcmp(cmp_1, cmp_2))
-		return -1;	//unexpected data
+// 	if(!strcmp(cmp_1, cmp_2))
+// 		return -1;	//unexpected data
 
-	//especially for client step 8: recv "str*****" from server
-	if(cmp_len == 3)
-	{
-		//copy random number received
-		strcpy(cmp_1, &expecline[3]);	
-		client_send_num = atoi(cmp_1);
-		// if wrong random num: return -1(unexpected data)
-		if(client_send_num < 32768 || client_send_num > 99999)
-			return -1;
-	}
+// 	//especially for client step 8: recv "str*****" from server
+// 	if(cmp_len == 3)
+// 	{
+// 		//copy random number received
+// 		strcpy(cmp_1, &expecline[3]);	
+// 		client_send_num = atoi(cmp_1);
+// 		// if wrong random num: return -1(unexpected data)
+// 		if(client_send_num < 32768 || client_send_num > 99999)
+// 			return -1;
+// 	}
 
-	return 0;
-}
+// 	return 0;
+// }
 
 
-int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options &opt)
-{
-	int n, select_rtn;
-	/*
-		nonblock/block not implemented
-	*/
+// int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options &opt)
+// {
+// 	int n, select_rtn;
+// 	/*
+// 		nonblock/block not implemented
+// 	*/
 
-	FD_ZERO(&wfds);		
-	FD_SET(sockfd, &wfds);
-	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
-		graceful("client_send select", -4);
+// 	FD_ZERO(&wfds);		
+// 	FD_SET(sockfd, &wfds);
+// 	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
+// 		graceful("client_send select", -4);
 	
-	if((n = send(sockfd, sendline, send_len, MSG_DONTWAIT)) == -1)
-		graceful("client_send send", -6);
+// 	if((n = send(sockfd, sendline, send_len, MSG_DONTWAIT)) == -1)
+// 		graceful("client_send send", -6);
 	
-	if(n != send_len)
-		return -2;	//send error
+// 	if(n != send_len)
+// 		return -2;	//send error
 
-	return 0;
-}
+// 	return 0;
+// }
 
 
 
-int client_communicate(int sockfd, const Options &opt)
-{
-	int select_rtn, n;
-	char recvline[BUFFER_LEN], sendline[BUFFER_LEN], expecline[BUFFER_LEN];
-	fd_set rfds, wfds;
+// int client_communicate(int sockfd, const Options &opt)
+// {
+// 	int select_rtn, n;
+// 	char recvline[BUFFER_LEN], sendline[BUFFER_LEN], expecline[BUFFER_LEN];
+// 	fd_set rfds, wfds;
 	
-	memset(recvline, 0, sizeof(recvline));
-	memset(sendline, 0, sizeof(sendline));
-	FD_ZERO(&rfds);		
-	FD_SET(sockfd, &rfds);	
-
-//step 1: receive "StuNo" from server
-	strcpy(expecline, "StuNo");
-	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
-		return -1;
-
-//step 2: send client student number
-	uint32_t h_stuNo = 1652571;
-	uint32_t n_stuNo = htonl(h_stuNo);	//hostlong to netlong
-	memcpy(sendline, &n_stuNo, sizeof(uint32_t));	
-	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
-		graceful("client_communicate send", -6);
-
-//step 3: recv "pid" from server
-	strcpy(expecline, "pid");
-	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
-		return -1;
-
-//step 4: send client pid
-	uint32_t n_pid;
-	pid_t pid = getpid();
-					//if fork,	 send: pid
 	if(opt.fork)
-		n_pid = htonl((uint32_t)pid); 
-	else 			//if nofork, send: pid<<16 + socket_id
-		n_pid = htonl((uint32_t)( ((int)pid)<<16 + sockfd ));
+// 	memset(recvline, 0, sizeof(recvline));
+// 	memset(sendline, 0, sizeof(sendline));
+// 	FD_ZERO(&rfds);		
+// 	FD_SET(sockfd, &rfds);	
 
-	memcpy(sendline, &n_pid, sizeof(uint32_t));	
-	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
-		graceful("client_communicate send", -6);
+// //step 1: receive "StuNo" from server
+// 	strcpy(expecline, "StuNo");
+// 	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+// 		return -1;
 
-//step 5: recv "TIME" from server
-	strcpy(expecline, "TIME");
-	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
-		return -1;
+// //step 2: send client student number
+// 	uint32_t h_stuNo = 1652571;
+// 	uint32_t n_stuNo = htonl(h_stuNo);	//hostlong to netlong
+// 	memcpy(sendline, &n_stuNo, sizeof(uint32_t));	
+// 	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
+// 		graceful("client_communicate send", -6);
 
-//step 6: send client current time(yyyy-mm-dd hh:mm:ss, 19 words)
-	char current[1024];
-	getCurrentTime(current);
-	current[19] = '\0';
-	strcpy(sendline, current);	
-	if(_send(sockfd, wfds, sendline, 19, opt) == -2)
-		graceful("client_communicate send", -6);
+// //step 3: recv "pid" from server
+// 	strcpy(expecline, "pid");
+// 	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+// 		return -1;
 
-//step 7: recv "str*****" from server
-	strcpy(expecline, "str*****");	//set ***** to verify the length of recv data
-	if(_recv(sockfd, rfds, expecline, 3, opt) == -1)	//only compare first 3 words
-		return -1;	
+// //step 4: send client pid
+// 	uint32_t n_pid;
+// 	pid_t pid = getpid();
+// 					//if fork,	 send: pid
+// 	if(opt.fork)
+// 		n_pid = htonl((uint32_t)pid); 
+// 	else 			//if nofork, send: pid<<16 + socket_id
+// 		n_pid = htonl((uint32_t)( (((int)pid)<<16) + sockfd ));
 
-//step 8: send random string in required length(saved in client_send_num)
-	unsigned char * u_sendline[BUFFER_LEN];
-	memcpy(u_sendline, creatRandomString(), client_send_num + 1);
-	FD_ZERO(&wfds);		
-	FD_SET(sockfd, &wfds);
-	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
-		graceful("client_send select", -4);
+// 	memcpy(sendline, &n_pid, sizeof(uint32_t));	
+// 	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
+// 		graceful("client_communicate send", -6);
+
+// //step 5: recv "TIME" from server
+// 	strcpy(expecline, "TIME");
+// 	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+// 		return -1;
+
+// //step 6: send client current time(yyyy-mm-dd hh:mm:ss, 19 words)
+// 	char current[1024];
+// 	getCurrentTime(current);
+// 	current[19] = '\0';
+// 	strcpy(sendline, current);	
+// 	if(_send(sockfd, wfds, sendline, 19, opt) == -2)
+// 		graceful("client_communicate send", -6);
+
+// //step 7: recv "str*****" from server
+// 	strcpy(expecline, "str*****");	//set ***** to verify the length of recv data
+// 	if(_recv(sockfd, rfds, expecline, 3, opt) == -1)	//only compare first 3 words
+// 		return -1;	
+
+// //step 8: send random string in required length(saved in client_send_num)
+// 	unsigned char * u_sendline[BUFFER_LEN];
+// 	memcpy(u_sendline, creatRandomString(), client_send_num + 1);
+// 	FD_ZERO(&wfds);		
+// 	FD_SET(sockfd, &wfds);
+// 	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
+// 		graceful("client_send select", -4);
 	
-	if((n = send(sockfd, u_sendline, client_send_num, MSG_DONTWAIT)) == -1)
-		graceful("client_send send", -6);
+// 	if((n = send(sockfd, u_sendline, client_send_num, MSG_DONTWAIT)) == -1)
+// 		graceful("client_send send", -6);
 	
-	if(n != client_send_num)
-		return -2;	//send error
+// 	if(n != client_send_num)
+// 		return -2;	//send error
 
-//step 9: recv "end" from server
-	strcpy(expecline, "end");	//set ***** to verify the length of recv data
-	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)	//only compare first 3 words
-		return -1;	
+// //step 9: recv "end" from server
+// 	strcpy(expecline, "end");	//set ***** to verify the length of recv data
+// 	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)	//only compare first 3 words
+// 		return -1;	
 
-	return 0;
-}
+// 	return 0;
+// }
 
 
 int creat_connection(const Options &opt)
@@ -255,28 +256,38 @@ int creat_connection(const Options &opt)
 int client_nofork(const Options &opt)
 {
 	error = -1;
-	for(int i=0; i<opt.num; i++)
+	for(unsigned int i=0; i<opt.num; i++)
 		creat_connection(opt);
 }
 
 
 int client_fork(const Options &opt)
 {
+	int status;
 	error = -1;
-	for(int i=0; i<opt.num; i++)
+	unsigned int i, j;
+	for(i=0; i<opt.num; i++)
 	{
 		pid_t fpid;
 		fpid = fork();
 		if(fpid < 0)
 			graceful("fork", -10);
 		else if(fpid == 0)
-			creat_connection(opt);
+			break;
 		else
 			continue;
 	}
-	/*
-		handle signal from child proccess
-	*/
+
+	if(i == opt.num)	//fp
+		for(j=0; j<opt.num; j++)
+		{
+			if(wait(&status) < 0)
+				graceful("wait", -10);
+		}
+	else
+		creat_connection(opt);
+
+	return 0;
 }
 
 
