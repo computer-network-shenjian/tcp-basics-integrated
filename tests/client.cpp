@@ -14,8 +14,8 @@
 #include <errno.h>
 #include <time.h>
 #include <malloc.h>
-#include "./shared_library.hpp"
-#include "./parse_arguments.hpp"
+#include "../shared_library.hpp"
+#include "../parse_arguments.hpp"
 
 using namespace std;
 
@@ -159,7 +159,9 @@ int client_communicate(int sockfd, const Options &opt)
 		return -1;
 
 //step 6: send client current time(yyyy-mm-dd hh:mm:ss, 19 words)
-	strcpy(sendline, getCurrentTime());	
+	char current[1024];
+	getCurrentTime(current);
+	strcpy(sendline, current);	
 	if(_send(sockfd, wfds, sendline, 19, opt) == -2)
 		graceful("client_communicate send", -6);
 
