@@ -10,6 +10,8 @@
 #include <cstdlib>
 #include <string>
 #include <sstream>
+#include <iostream>
+#include <fstream>
 
 #define MAX_RECVLEN     32768
 #define BUFFER_LEN      100000
@@ -122,6 +124,7 @@ bool peer_is_disconnected(int socketfd);
     // check if peer is disconnected
 
 int write_file(int stuNo, int pid, const char *time, const char *client_string);
+    // write file as designated
 
 char* getCurrentTime();
     //format: yyyy-mm-dd hh:mm:ss, 19 bytes
