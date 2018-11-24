@@ -531,16 +531,7 @@ int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options 
 // -2   send error
 //  0   nothing wrong
 
-int client_fork(const Options &opt) {
-    // can be either blocking or non-blocking
 
-}
-
-
-int client_nofork(const Options &opt) {
-    // must be non-blocking
-
-}
 
 int ready_to_send(int socketfd, const Options &opt) {
     // return 1 means ready to send
@@ -625,6 +616,16 @@ int write_file(int stuNo, int pid, const char *time, const char *client_string) 
     return 0;
 }
 
-char* getCurrentTime() {
-    return 0;
+//format: yyyy-mm-dd hh:mm:ss, 19 words
+char * getCurrentTime()
+{
+    timespec time;
+    clock_gettime(CLOCK_REALTIME, &time); 
+    tm nowTime;
+    localtime_r(&time.tv_sec, &nowTime);
+    char current[1024];
+    sprintf(current, "%04d-%02d-%02d %02d:%02d:%02d", 
+            nowTime.tm_year + 1900, nowTime.tm_mon, nowTime.tm_mday, 
+            nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
+    return current;
 }
