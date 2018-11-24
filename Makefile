@@ -7,7 +7,7 @@ TARGET_SERVER := $(SRC_SERVER:.cpp=)
 TARGET_CLIENT := $(SRC_CLIENT:.cpp=)
 
 
-TARGET_LIB := libhw9.so
+TARGET_LIB := libg3.so
 
 
 SRC_TESTS := $(wildcard tests/*.cpp)

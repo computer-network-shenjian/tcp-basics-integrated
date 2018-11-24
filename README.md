@@ -2,7 +2,7 @@
 
 ## Makefile logic
 
-The code base consists of mainly three parts: the ./server and ./client binary executables, `libhw9.so` dynamic library that contains all reusable code, and test cases in `tests/` with file names corresponding to the function each test case targets at.
+The code base consists of mainly three parts: the ./server and ./client binary executables, `libg3.so` dynamic library that contains all reusable code, and test cases in `tests/` with file names corresponding to the function each test case targets at.
 
 The makefile generates object files for each library source file before linking them together to avoid the recompilation of code that isn't modified.
 
@@ -10,7 +10,7 @@ The makefile generates object files for each library source file before linking 
 
 This project is designed to be developed with a test driven approach to cope with the potential escalation of the complexity of future computer network projects. The testing api is designed to be as easy to use as possible to lower the mental burden of actually using tests during development.
 
-All tests resides in the `tests/` directory. Running `make tests` in the root directory automatically picks up all `.cpp` files in `tests/` and compile them into test binaries, linking together with the dynamic library `libhw9.so` so you have all library functions available to call and test.
+All tests resides in the `tests/` directory. Running `make tests` in the root directory automatically picks up all `.cpp` files in `tests/` and compile them into test binaries, linking together with the dynamic library `libg3.so` so you have all library functions available to call and test.
 
 ## How to write and run a test
 
@@ -19,7 +19,7 @@ Here is an example writing a test case with _main()_ function and running it. Th
 ```make
 $ make tests && LD_LIBRARY_PATH=. tests/parse_arguments --ip 1.1.1.1 --port 12 --block --fork  --num 110
 g++ -std=c++11 -fPIC -Wall -Wextra   -c -o parse_arguments.o parse_arguments.cpp
-g++ -o libhw9.so parse_arguments.o parse_arguments.hpp -shared -std=c++11 -fPIC -Wall -Wextra
+g++ -o libg3.so parse_arguments.o parse_arguments.hpp -shared -std=c++11 -fPIC -Wall -Wextra
 g++ -std=c++11 -fPIC -Wall -Wextra -L. -lhw9 -o tests/parse_arguments tests/parse_arguments.cpp
 is_client = true
 ip:     1.1.1.1
