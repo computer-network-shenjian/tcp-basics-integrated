@@ -115,7 +115,7 @@ int loop_server_nofork(int listener, const Options &opt) {
     }
 }
 
-int server_communicate(int socketfd, Options opt) {
+int server_communicate(int socketfd, const Options &opt) {
     // return -1: select error
     // return -2: server offline
     // return -3: ready_to_send error
