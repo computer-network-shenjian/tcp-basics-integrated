@@ -120,6 +120,11 @@ int client_nofork(const Options &opt);
 int client_fork(const Options &opt);
 // can be either blocking or non-blocking
 
+int creat_connection(const Options &opt);
+    //reconnect implemented, only return after correctly communicating with server 
+
+
+
 int ready_to_send(int socketfd, const Options &opt);
     // return 1 means ready to send
     // return -1: select error

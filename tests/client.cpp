@@ -21,11 +21,8 @@
 using namespace std;
 
 
-struct sockaddr_in   servaddr;
-int 	sockfd;
-fd_set  fds;
-int     flags, error = -1, slen = sizeof(int);
-int  	client_send_num;	//communication step 8
+
+
 
 
 
@@ -119,7 +116,6 @@ int  	client_send_num;	//communication step 8
 // 	char recvline[BUFFER_LEN], sendline[BUFFER_LEN], expecline[BUFFER_LEN];
 // 	fd_set rfds, wfds;
 	
-	if(opt.fork)
 // 	memset(recvline, 0, sizeof(recvline));
 // 	memset(sendline, 0, sizeof(sendline));
 // 	FD_ZERO(&rfds);		
@@ -196,99 +192,6 @@ int  	client_send_num;	//communication step 8
 // }
 
 
-int creat_connection(const Options &opt)
-{
-	//reconnection flag
-	int reconn = true;
-	while(reconn)
-	{
-		if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
-			graceful("socket", -2);
-
-		if(!opt.block)
-		{
-			//nonblock
-			flags = fcntl(sockfd, F_GETFL, 0);
-			fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);	
-
-			if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-			{
-				//EINPROGRESS means connection is in progress
-				if(errno != EINPROGRESS)
-					graceful("connect", -3);
-
-				FD_ZERO(&fds);		
-				FD_SET(sockfd, &fds);		
-				int select_rtn;
-
-				if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0)
-				{
-					getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
-					//error == 0 means connect succeeded
-					if(error)
-						graceful("connect", -3);
-				}
-			}
-			//connect succeed	
-		}
-		//block
-		else
-		{
-			if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-				graceful("connect", -3);
-		}
-
-		if(client_communicate(sockfd, opt) == -1)
-		{
-			close(sockfd);
-				continue;
-		}
-		/*
-			SO_LINGER check
-		*/
-		close(sockfd);
-		reconn = false;
-	}
-	return 0;
-}
-
-
-int client_nofork(const Options &opt)
-{
-	error = -1;
-	for(unsigned int i=0; i<opt.num; i++)
-		creat_connection(opt);
-}
-
-
-int client_fork(const Options &opt)
-{
-	int status;
-	error = -1;
-	unsigned int i, j;
-	for(i=0; i<opt.num; i++)
-	{
-		pid_t fpid;
-		fpid = fork();
-		if(fpid < 0)
-			graceful("fork", -10);
-		else if(fpid == 0)
-			break;
-		else
-			continue;
-	}
-
-	if(i == opt.num)	//fp
-		for(j=0; j<opt.num; j++)
-		{
-			if(wait(&status) < 0)
-				graceful("wait", -10);
-		}
-	else
-		creat_connection(opt);
-
-	return 0;
-}
 
 
 int main(int argc, char *argv[]) {
@@ -296,11 +199,6 @@ int main(int argc, char *argv[]) {
     // process arguments
     Options opt = parse_arguments(argc, argv, true);
 
-   	memset(&servaddr, 0, sizeof(servaddr));
-	servaddr.sin_family = AF_INET;
-	servaddr.sin_port = htons(stoi(opt.port));
-	if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
-		graceful("Invalid ip address", -1);
 
     if (opt.fork)
         client_fork(opt);
