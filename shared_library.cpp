@@ -533,16 +533,7 @@ int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options 
 // -2   send error
 //  0   nothing wrong
 
-int client_fork(const Options &opt) {
-    // can be either blocking or non-blocking
 
-}
-
-
-int client_nofork(const Options &opt) {
-    // must be non-blocking
-
-}
 
 int ready_to_send(int socketfd, const Options &opt) {
     // return 1 means ready to send

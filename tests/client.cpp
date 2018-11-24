@@ -14,8 +14,8 @@
 #include <errno.h>
 #include <time.h>
 #include <malloc.h>
-#include "../parse_arguments.hpp"
-#include "../shared_library.hpp"
+#include "./shared_library.hpp"
+#include "./parse_arguments.hpp"
 
 using namespace std;
 
@@ -26,19 +26,7 @@ fd_set  fds;
 int     flags, error = -1, slen = sizeof(int);
 int  	client_send_num;	//communication step 8
 
-//format: yyyy-mm-dd hh:mm:ss, 19 words
-char * getCurrentTime()
-{
-	timespec time;
-	clock_gettime(CLOCK_REALTIME, &time); 
-	tm nowTime;
-	localtime_r(&time.tv_sec, &nowTime);
-	char current[1024];
-	sprintf(current, "%04d-%02d-%02d %02d:%02d:%02d", 
-			nowTime.tm_year + 1900, nowTime.tm_mon, nowTime.tm_mday, 
-			nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
-	return current;
-}
+
 
 
 unsigned char * creatRandomString()
@@ -56,6 +44,8 @@ unsigned char * creatRandomString()
 
 int _recv(int sockfd, fd_set &rfds, char *expecline, int cmp_len, const Options &opt)
 {
+	int n, select_rtn;
+	char recvline[BUFFER_LEN];
 	/*
 		nonblock/block not implemented
 	*/
@@ -101,9 +91,11 @@ int _recv(int sockfd, fd_set &rfds, char *expecline, int cmp_len, const Options 
 
 int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options &opt)
 {
+	int n, select_rtn;
 	/*
 		nonblock/block not implemented
 	*/
+
 	FD_ZERO(&wfds);		
 	FD_SET(sockfd, &wfds);
 	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
@@ -119,6 +111,7 @@ int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options 
 }
 
 
+
 int client_communicate(int sockfd, const Options &opt)
 {
 	int select_rtn, n;
@@ -126,25 +119,25 @@ int client_communicate(int sockfd, const Options &opt)
 	fd_set rfds, wfds;
 	
 	memset(recvline, 0, sizeof(recvline));
-	memeset(sendline, 0, sizeof(sendline));
+	memset(sendline, 0, sizeof(sendline));
 	FD_ZERO(&rfds);		
 	FD_SET(sockfd, &rfds);	
 
 //step 1: receive "StuNo" from server
 	strcpy(expecline, "StuNo");
-	if(client_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
 		return -1;
 
 //step 2: send client student number
 	uint32_t h_stuNo = 1652571;
 	uint32_t n_stuNo = htonl(h_stuNo);	//hostlong to netlong
 	memcpy(sendline, &n_stuNo, sizeof(uint32_t));	
-	if(client_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
+	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
 		graceful("client_communicate send", -6);
 
 //step 3: recv "pid" from server
 	strcpy(expecline, "pid");
-	if(client_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
 		return -1;
 
 //step 4: send client pid
@@ -157,33 +150,47 @@ int client_communicate(int sockfd, const Options &opt)
 		n_pid = htonl((uint32_t)( ((int)pid)<<16 + sockfd ));
 
 	memcpy(sendline, &n_pid, sizeof(uint32_t));	
-	if(client_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
+	if(_send(sockfd, wfds, sendline, sizeof(uint32_t), opt) == -2)
 		graceful("client_communicate send", -6);
 
 //step 5: recv "TIME" from server
 	strcpy(expecline, "TIME");
-	if(client_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
+	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)
 		return -1;
 
 //step 6: send client current time(yyyy-mm-dd hh:mm:ss, 19 words)
-	strcpy(sendline, getCurrentTime());	
-	if(client_send(sockfd, wfds, sendline, 19, opt) == -2)
+	char current[1024];
+	getCurrentTime(current);
+	current[19] = '\0';
+	strcpy(sendline, current);	
+	if(_send(sockfd, wfds, sendline, 19, opt) == -2)
 		graceful("client_communicate send", -6);
 
 //step 7: recv "str*****" from server
 	strcpy(expecline, "str*****");	//set ***** to verify the length of recv data
-	if(client_recv(sockfd, rfds, expecline, 3, opt) == -1)	//only compare first 3 words
+	if(_recv(sockfd, rfds, expecline, 3, opt) == -1)	//only compare first 3 words
 		return -1;	
 
 //step 8: send random string in required length(saved in client_send_num)
-	strcpy(sendline, creatRandomString());
-	if(client_send(sockfd, wfds, sendline, client_send_num, opt) == -2)
-		graceful("client_communicate send", -6);
+	unsigned char * u_sendline[BUFFER_LEN];
+	memcpy(u_sendline, creatRandomString(), client_send_num + 1);
+	FD_ZERO(&wfds);		
+	FD_SET(sockfd, &wfds);
+	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
+		graceful("client_send select", -4);
+	
+	if((n = send(sockfd, u_sendline, client_send_num, MSG_DONTWAIT)) == -1)
+		graceful("client_send send", -6);
+	
+	if(n != client_send_num)
+		return -2;	//send error
 
 //step 9: recv "end" from server
 	strcpy(expecline, "end");	//set ***** to verify the length of recv data
-	if(client_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)	//only compare first 3 words
+	if(_recv(sockfd, rfds, expecline, strlen(expecline), opt) == -1)	//only compare first 3 words
 		return -1;	
+
+	return 0;
 }
 
 
@@ -225,11 +232,11 @@ int creat_connection(const Options &opt)
 			graceful("connect", -3);
 	}
 
-	if(communicate(sockfd, opt) == -1)
+	if(client_communicate(sockfd, opt) == -1)
 	{
 		/*
 			reconnect!
-		/*
+		*/
 	}
 	/*
 		SO_LINGER check
@@ -239,7 +246,7 @@ int creat_connection(const Options &opt)
 }
 
 
-int client_fork(const Options &opt)
+int client_nofork(const Options &opt)
 {
 	error = -1;
 	for(int i=0; i<opt.num; i++)
