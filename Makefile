@@ -16,6 +16,7 @@ TARGET_TESTS := $(patsubst tests/%.cpp,tests/%,$(SRC_TESTS))
 .tests: $(TARGET_TESTS) # prepend a dot to avoid setting default
 
 all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) .tests
+notest: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT)
 
 
 ####### binary section
