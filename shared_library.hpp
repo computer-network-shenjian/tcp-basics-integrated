@@ -6,18 +6,37 @@
 #include <iostream>
 #include <unistd.h> // read
 #include <errno.h>
+#include <string.h>
+#include <cstdlib>
+#include <string>
+#include <sstream>
 
 #define MAX_RECVLEN     32768
 #define BUFFER_LEN      100000
 #define WAIT_TIME_S     1           // 1 s
 #define WAIT_TIME_US    500000      // 0.5 s
 
+#define STR_1           "StuNo"
+#define STR_2           "pid"
+#define STR_3           "TIME"
+#define STR_4           "end"
+
 // gracefully perror and exit
-void graceful(char *s, int x) { perror(s); exit(x); }
+inline void graceful(char *s, int x) { perror(s); exit(x); }
 
 // gracefully perror and return
-int graceful_return(char *s, int x) { perror(s); return x; }
+#define graceful_return(s, x) {\
+    perror((s));\
+    return((x)); }
+/*
+// gracefully close, perror and return
+#define graceful_close(fd, s, x) {\
+    close((fd));\
+    perror((s));\
+    return((x)); }
+*/
 
+#define minimum(a, b) (a < b ? a : b)
 
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
@@ -52,6 +71,17 @@ int server_communicate(int socketfd, const Options &opt);
 
     // not implemented
     // remember to handle partial sends here
+    // return 0: all good
+    // return -1: select error
+    // return -2: time up
+    // return -3: client offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
 
 
 int client_communicate(int sockfd, const Options &opt);
@@ -75,19 +105,23 @@ int client_nofork(const Options &opt);
 int client_fork(const Options &opt);
 // can be either blocking or non-blocking
 
-int ready_to_send(int socketfd);
+int ready_to_send(int socketfd, const Options &opt);
     // return 1 means ready to send
     // return -1: select error
     // return -2: time up
     // return -3: server offline
     // return -4: not permitted to send
 
-int ready_to_recv(int socketfd);
+int ready_to_recv(int socketfd, const Options &opt);
     // return 1 means ready to recv
     // return -1: select error
     // return -2: time up
     // return -3: not permitted to recv
 
+bool peer_is_disconnected(int socketfd);
+    // check if peer is disconnected
 
-char * getCurrentTime();
-//format: yyyy-mm-dd hh:mm:ss, 19 words
+int write_file(int stuNo, int pid, const char *time, const char *client_string);
+
+char* getCurrentTime();
+    //format: yyyy-mm-dd hh:mm:ss, 19 bytes

@@ -116,66 +116,343 @@ int loop_server_nofork(int listener, const Options &opt) {
 }
 
 int server_communicate(int socketfd, const Options &opt) {
+    // return 0: all good
     // return -1: select error
-    // return -2: server offline
-    // return -3: not permitted to write
-    // return -4: ready_to_send error
-    // return -5: send error
-    // return -6: message sent is of wrong quantity of byte
+    // return -2: time up
+    // return -3: client offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
 
     // debug
     std::cout << "server_communicate" << std::endl;
 
-    char buffer[BUFFER_LEN];
-
     int val_send_ready, val_send;
+    std::string str;
     // server send a string "StuNo"
-    val_send_ready = ready_to_send(socketfd);
+    val_send_ready = ready_to_send(socketfd, opt);
     if (val_send_ready < 0) {
         if (val_send_ready == -1) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("server offline", -2);
+            graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("not permitted to write", -3);
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
         }
         else {
-            graceful_return("ready_to_send", -4);
+            graceful_return("ready_to_send", -5);
         }
     }
-    std::string str_1 = "StuNo";
-    val_send = send(socketfd, str_1.c_str(), str_1.length(), MSG_NOSIGNAL);
-    if (val_send != str_1.length()) {
+    str = STR_1;
+    val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
+    if (val_send != str.length()) {
         if (errno == EPIPE) {
-            graceful_return("server offline", -2);
+            graceful_return("client offline", -3);
         }
         else if (val_send == -1) {
-            graceful_return("send", -5);
+            graceful_return("send", -6);
         }
         else {
-            graceful_return("message sent is of wrong quantity of byte", -6);
+            graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
 
+    int val_recv_ready, val_recv;
+    char buffer[BUFFER_LEN] = {0};
     // server recv an int as student number, network byte order
+    uint32_t h_stuNo = 0;
+    uint32_t n_stuNo = 0;
+
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, sizeof(uint32_t), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    else {
+        memcpy(&n_stuNo, buffer, sizeof(uint32_t));
+        h_stuNo = ntohl(n_stuNo);
+    }
 
     // server send a string "pid"
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+    str = STR_2;
+    val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
+    if (val_send != str.length()) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
 
     // server recv an int as client's pid, network byte order
+    uint32_t h_pid = 0;
+    uint32_t n_pid = 0;
+
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, sizeof(uint32_t), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    else {
+        memcpy(&n_pid, buffer, sizeof(uint32_t));
+        h_pid = ntohl(n_pid);
+    }
 
     // server send a string "TIME"
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+    str = STR_3;
+    val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
+    if (val_send != str.length()) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
 
     // server recv client's time as a string with a fixed length of 19 bytes
+    char time_buf[20] = {0};
+
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, 19, 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    else if (val_recv != 19) {
+        graceful_return("not received exact designated quantity of bytes", -10);
+    }
+    else {
+        memcpy(time_buf, buffer, 19);
+    }
 
     // server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
-
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+    int random = rand() % 67232 + 32768;
+    std::stringstream ss;
+    ss << "str" << random << '\0';
+    str = ss.str();
+    val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
+    if (val_send != str.length()) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
     // server recv a random string with length *****, and each character is in ASCII 0~255.
+    int already_recv = 0;
+    char client_string[BUFFER_LEN] = {0};
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    while (already_recv < random){
+        val_recv_ready = ready_to_recv(socketfd, opt);
+        if (val_recv_ready < 0) {
+            if (val_recv_ready == -1) {
+                graceful_return("select", -1);
+            }
+            else if (val_recv_ready == -2) {
+                graceful_return("time up", -2);
+            }
+            else if (val_recv_ready == -3) {
+                graceful_return("not permitted to recv", -8);
+            }
+            else {
+                graceful_return("ready_to_recv", -9);
+            }
+        }
+
+        val_recv = recv(socketfd, buffer+already_recv, minimum(random-already_recv, MAX_RECVLEN), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_recv != minimum(random-already_recv, MAX_RECVLEN)) {
+            graceful_return("not received exact designated quantity of bytes", -10);
+        }
+        else {
+            already_recv += val_recv;
+        }
+
+        memcpy(client_string, buffer, random);
+    }    
 
     // server send a string "end"
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+    str = STR_4;
+    val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
+    if (val_send != str.length()) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
 
     // after server catch that client is closed, close s/c socket, write file
+    // check client status at every second
+    while(1){
+        if (peer_is_disconnected(socketfd)) {
+            close(socketfd);
+            break;
+        }
+        else {
+            sleep(1);
+        }
+    }
+
+    write_file(h_stuNo, h_pid, time_buf, client_string);
 
     // return 0 as success
     return 0;
@@ -244,12 +521,15 @@ int client_nofork(const Options &opt) {
 
 }
 
-int ready_to_send(int socketfd) {
+int ready_to_send(int socketfd, const Options &opt) {
     // return 1 means ready to send
     // return -1: select error
     // return -2: time up
     // return -3: server offline
     // return -4: not permitted to send
+    if (!opt.block) {
+        return 1;
+    }
     fd_set readfds, writefds;
     struct timeval tv;
     FD_ZERO(&readfds);
@@ -281,11 +561,14 @@ int ready_to_send(int socketfd) {
     }
 }
 
-int ready_to_recv(int socketfd) {
+int ready_to_recv(int socketfd, const Options &opt) {
     // return 1 means ready to recv
     // return -1: select error
     // return -2: time up
     // return -3: not permitted to recv
+    if (!opt.block) {
+        return 1;
+    }
     fd_set readfds;
     struct timeval tv;
     FD_ZERO(&readfds);
@@ -307,4 +590,20 @@ int ready_to_recv(int socketfd) {
     else {
         graceful_return("not permitted to recv", -3);
     }
+}
+
+bool peer_is_disconnected(int socketfd) {
+    
+    // if peer is disconnected
+    return true;
+}
+
+int write_file(int stuNo, int pid, const char *time, const char *client_string) {
+
+    // if all good, return 0.
+    return 0;
+}
+
+char* getCurrentTime() {
+    return 0;
 }
