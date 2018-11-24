@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <time.h>
 #include <malloc.h>
+#include <fstream>
 #include "./shared_library.hpp"
 #include "./parse_arguments.hpp"
 
@@ -196,53 +197,58 @@ int client_communicate(int sockfd, const Options &opt)
 
 int creat_connection(const Options &opt)
 {
-	if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
-		graceful("socket", -2);
-
-	if(!opt.block)
+	//reconnection flag
+	int reconn = true;
+	while(reconn)
 	{
-		//nonblock
-		flags = fcntl(sockfd, F_GETFL, 0);
-		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);	
+		if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
+			graceful("socket", -2);
 
-		if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
+		if(!opt.block)
 		{
-			//EINPROGRESS means connection is in progress
-			if(errno != EINPROGRESS)
-				graceful("connect", -3);
+			//nonblock
+			flags = fcntl(sockfd, F_GETFL, 0);
+			fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);	
 
-			FD_ZERO(&fds);		
-			FD_SET(sockfd, &fds);		
-			int select_rtn;
-
-			if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0)
+			if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
 			{
-				getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
-				//error == 0 means connect succeeded
-				if(error)
+				//EINPROGRESS means connection is in progress
+				if(errno != EINPROGRESS)
 					graceful("connect", -3);
-			}
-		}
-		//connect succeed	
-	}
-	//block
-	else
-	{
-		if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-			graceful("connect", -3);
-	}
 
-	if(client_communicate(sockfd, opt) == -1)
-	{
+				FD_ZERO(&fds);		
+				FD_SET(sockfd, &fds);		
+				int select_rtn;
+
+				if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0)
+				{
+					getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
+					//error == 0 means connect succeeded
+					if(error)
+						graceful("connect", -3);
+				}
+			}
+			//connect succeed	
+		}
+		//block
+		else
+		{
+			if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
+				graceful("connect", -3);
+		}
+
+		if(client_communicate(sockfd, opt) == -1)
+		{
+			close(sockfd);
+				continue;
+		}
 		/*
-			reconnect!
+			SO_LINGER check
 		*/
+		close(sockfd);
+		reconn = false;
 	}
-	/*
-		SO_LINGER check
-	*/
-	cout<<"client end!"<<endl;
-	close(sockfd);
+	return 0;
 }
 
 
