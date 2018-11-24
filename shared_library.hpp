@@ -7,8 +7,10 @@
 #include <unistd.h> // read
 #include <errno.h>
 
-#define MAX_RECVLEN 32768
-#define BUFFER_LEN 100000
+#define MAX_RECVLEN     32768
+#define BUFFER_LEN      100000
+#define WAIT_TIME_S     1           // 1 s
+#define WAIT_TIME_US    500000      // 0.5 s
 
 // gracefully perror and exit
 void graceful(char *s, int x) { perror(s); exit(x); }
@@ -73,10 +75,18 @@ int client_nofork(const Options &opt);
 int client_fork(const Options &opt);
 // can be either blocking or non-blocking
 
-int ready_to_send(int socketfd, fd_set &readfds, fd_set &writefds);
+int ready_to_send(int socketfd);
     // return 1 means ready to send
     // return -1: select error
-    // return -2: server offline
+    // return -2: time up
+    // return -3: server offline
+    // return -4: not permitted to send
+
+int ready_to_recv(int socketfd);
+    // return 1 means ready to recv
+    // return -1: select error
+    // return -2: time up
+    // return -3: not permitted to recv
 
 
 char * getCurrentTime();

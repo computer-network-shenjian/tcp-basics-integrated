@@ -118,20 +118,19 @@ int loop_server_nofork(int listener, const Options &opt) {
 int server_communicate(int socketfd, const Options &opt) {
     // return -1: select error
     // return -2: server offline
-    // return -3: ready_to_send error
-    // return -4: send error
-    // return -5: message sent is of wrong quantity of byte
+    // return -3: not permitted to write
+    // return -4: ready_to_send error
+    // return -5: send error
+    // return -6: message sent is of wrong quantity of byte
+
     // debug
     std::cout << "server_communicate" << std::endl;
-
-	fd_set readfds, writefds;
-	struct timeval tv;
 
     char buffer[BUFFER_LEN];
 
     int val_send_ready, val_send;
     // server send a string "StuNo"
-    val_send_ready = ready_to_send(socketfd, readfds, writefds);
+    val_send_ready = ready_to_send(socketfd);
     if (val_send_ready < 0) {
         if (val_send_ready == -1) {
             graceful_return("select", -1);
@@ -139,8 +138,11 @@ int server_communicate(int socketfd, const Options &opt) {
         else if (val_send_ready == -2) {
             graceful_return("server offline", -2);
         }
+        else if (val_send_ready == -3) {
+            graceful_return("not permitted to write", -3);
+        }
         else {
-            graceful_return("ready_to_send", -3);
+            graceful_return("ready_to_send", -4);
         }
     }
     std::string str_1 = "StuNo";
@@ -150,10 +152,10 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("server offline", -2);
         }
         else if (val_send == -1) {
-            graceful_return("send", -4);
+            graceful_return("send", -5);
         }
         else {
-            graceful_return("message sent is of wrong quantity of byte", -5);
+            graceful_return("message sent is of wrong quantity of byte", -6);
         }
     }
 
@@ -242,22 +244,67 @@ int client_nofork(const Options &opt) {
 
 }
 
-int ready_to_send(int socketfd, fd_set &readfds, fd_set &writefds) {
+int ready_to_send(int socketfd) {
     // return 1 means ready to send
     // return -1: select error
-    // return -2: server offline
+    // return -2: time up
+    // return -3: server offline
+    // return -4: not permitted to send
+    fd_set readfds, writefds;
+    struct timeval tv;
     FD_ZERO(&readfds);
     FD_ZERO(&writefds);
     FD_SET(socketfd, &readfds);
     FD_SET(socketfd, &writefds);
-    if (select(socketfd+1, &readfds, &writefds, NULL, NULL) < 0) {
+    tv.tv_sec = WAIT_TIME_S;
+    tv.tv_usec = WAIT_TIME_US;
+
+    int val_select = select(socketfd+1, &readfds, &writefds, NULL, &tv);
+    if (val_select < 0) {
         graceful_return("select", -1);
     }
+    else if (val_select == 0) {
+        graceful_return("time up and no change", -2);
+    }
 	else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
+        FD_ZERO(&readfds);
+        FD_ZERO(&writefds);
 		close(socketfd);
-		graceful_return("server offline", -2);
+		graceful_return("server offline", -3);
 	}
-    else {
+    else if (FD_ISSET(socketfd, &writefds)){
+        FD_ZERO(&writefds);
         return 1;
+    }
+    else {
+        graceful_return("not permitted to send", -4);
+    }
+}
+
+int ready_to_recv(int socketfd) {
+    // return 1 means ready to recv
+    // return -1: select error
+    // return -2: time up
+    // return -3: not permitted to recv
+    fd_set readfds;
+    struct timeval tv;
+    FD_ZERO(&readfds);
+    FD_SET(socketfd, &readfds);
+    tv.tv_sec = WAIT_TIME_S;
+    tv.tv_usec = WAIT_TIME_US;
+
+    int val_select = select(socketfd+1, &readfds, NULL, NULL, &tv);
+    if (val_select < 0) {
+        graceful_return("select", -1);
+    }
+    else if (val_select == 0) {
+        graceful_return("time up and no change", -2);
+    }
+    else if (FD_ISSET(socketfd, &readfds)){
+        FD_ZERO(&readfds);
+        return 1;
+    }
+    else {
+        graceful_return("not permitted to recv", -3);
     }
 }
