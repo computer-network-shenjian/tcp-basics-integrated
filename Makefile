@@ -7,7 +7,7 @@ TARGET_SERVER := $(SRC_SERVER:.cpp=)
 TARGET_CLIENT := $(SRC_CLIENT:.cpp=)
 
 
-TARGET_LIB := libhw9.so
+TARGET_LIB := libg3.so
 
 
 SRC_TESTS := $(wildcard tests/*.cpp)
@@ -27,7 +27,7 @@ $(TARGET_CLIENT): $(TARGET_LIB)
 SRC_LIB := parse_arguments.cpp shared_library.cpp
 HEADER_LIB := $(SRC_LIB:.cpp=.hpp)
 OBJ_LIB := $(SRC_LIB:.cpp=.o)
-LIB_FLAGS := -L. -lhw9
+LIB_FLAGS := -L. -lg3
 
 $(TARGET_LIB): $(OBJ_LIB) $(HEADER_LIB)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) -shared -o $@ $^
