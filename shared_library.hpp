@@ -73,7 +73,7 @@ int client_nofork(const Options &opt);
 int client_fork(const Options &opt);
 // can be either blocking or non-blocking
 
-int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds);
+int ready_to_send(int socketfd, fd_set &readfds, fd_set &writefds);
     // return 1 means ready to send
     // return -1: select error
     // return -2: server offline

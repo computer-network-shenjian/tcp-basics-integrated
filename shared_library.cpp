@@ -131,7 +131,7 @@ int server_communicate(int socketfd, const Options &opt) {
 
     int val_send_ready, val_send;
     // server send a string "StuNo"
-    val_send_ready = ready_to_send(socketfd, &readfds, &writefds);
+    val_send_ready = ready_to_send(socketfd, readfds, writefds);
     if (val_send_ready < 0) {
         if (val_send_ready == -1) {
             graceful_return("select", -1);
@@ -242,18 +242,18 @@ int client_nofork(const Options &opt) {
 
 }
 
-int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds) {
+int ready_to_send(int socketfd, fd_set &readfds, fd_set &writefds) {
     // return 1 means ready to send
     // return -1: select error
     // return -2: server offline
-    FD_ZERO(readfds);
-    FD_ZERO(writefds);
-    FD_SET(socketfd, readfds);
-    FD_SET(socketfd, writefds);
-    if (select(socketfd+1, readfds, writefds, NULL, NULL) < 0) {
+    FD_ZERO(&readfds);
+    FD_ZERO(&writefds);
+    FD_SET(socketfd, &readfds);
+    FD_SET(socketfd, &writefds);
+    if (select(socketfd+1, &readfds, &writefds, NULL, NULL) < 0) {
         graceful_return("select", -1);
     }
-	else if (FD_ISSET(socketfd, readfds) && FD_ISSET(socketfd, writefds)) {
+	else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
 		close(socketfd);
 		graceful_return("server offline", -2);
 	}
