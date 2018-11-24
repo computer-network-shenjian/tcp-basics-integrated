@@ -232,13 +232,13 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
 }
 
 
-int loop_client_fork(const Options &opt) {
+int client_fork(const Options &opt) {
     // can be either blocking or non-blocking
 
 }
 
-int loop_client_nofork(const Options &opt) {
-    // must be non-blocking otherwise simultaneous connections can't be handled
+int client_nofork(const Options &opt) {
+    // must be non-blocking
 
 }
 

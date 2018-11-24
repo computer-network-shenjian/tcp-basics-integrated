@@ -51,7 +51,8 @@ int server_communicate(int socketfd, const Options &opt);
     // not implemented
     // remember to handle partial sends here
 
-int client_communicate(int socketfd, const Options &opt);
+
+int client_communicate(int sockfd, const Options &opt)
     // exchange messages with server according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the server,
@@ -59,6 +60,12 @@ int client_communicate(int socketfd, const Options &opt);
 
     // not implemented
     // remember to handle partial sends here
+    
+    //return:
+    //   0 connect succeed
+    //  -1 recv unexpected data, must reconnect
+    //  -2 send error
+
 
 // client specific
 int client_nofork(const Options &opt);
@@ -71,3 +78,6 @@ int ready_to_send(int socketfd, fd_set *readfds, fd_set *writefds);
     // return -1: select error
     // return -2: server offline
 
+
+char * getCurrentTime();
+//format: yyyy-mm-dd hh:mm:ss, 19 words
