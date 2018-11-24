@@ -14,6 +14,7 @@
 #include <fstream>
 #include <time.h>
 
+#define MAX_SENDLEN     32768
 #define MAX_RECVLEN     32768
 #define BUFFER_LEN      100000
 #define WAIT_TIME_S     1           // 1 s
@@ -23,6 +24,8 @@
 #define STR_2           "pid"
 #define STR_3           "TIME"
 #define STR_4           "end"
+
+#define STU_NO          1652571
 
 // gracefully perror and exit
 inline void graceful(char *s, int x) { perror(s); exit(x); }
@@ -88,7 +91,7 @@ int server_communicate(int socketfd, const Options &opt);
     // return -11: write_file error
 
 
-int client_communicate(int sockfd, const Options &opt);
+int client_communicate(int socketfd, const Options &opt);
     // exchange messages with server according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the server,
@@ -96,11 +99,19 @@ int client_communicate(int sockfd, const Options &opt);
 
     // not implemented
     // remember to handle partial sends here
-    
-    //return:
-    //   0 connect succeed
-    //  -1 recv unexpected data, must reconnect
-    //  -2 send error
+    // return 0: all good
+    // return -1: select error
+    // return -2: time up
+    // return -3: client offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
+    // return -12: not received correct string
 
 
 // client specific
@@ -125,8 +136,17 @@ int ready_to_recv(int socketfd, const Options &opt);
 bool peer_is_disconnected(int socketfd);
     // check if peer is disconnected
 
-int write_file(int stuNo, int pid, const char *time_str, const char *client_string);
+int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string);
     // write file as designated
 
 int getCurrentTime(char *time_str);
-    //format: yyyy-mm-dd hh:mm:ss, 19 bytes
+    // format: yyyy-mm-dd hh:mm:ss, 19 bytes
+
+int creatRandomString(const int length, unsigned char *random_string);
+    // create random string with designated length
+
+bool same_string(const char *str1, const char *str2, const int cmp_len);
+    // compare strings from first byte to designated length
+
+int parse_str(const char *str);
+    // parse "str*****" into a 5-digit number

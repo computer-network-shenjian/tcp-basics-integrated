@@ -19,7 +19,6 @@
 
 using namespace std;
 
-
 struct sockaddr_in   servaddr;
 int 	sockfd;
 fd_set  fds;

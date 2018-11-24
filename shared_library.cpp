@@ -287,7 +287,7 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
     str = STR_3;
-    val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
+    val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
     if (val_send != str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
@@ -370,10 +370,10 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
     // server recv a random string with length *****, and each character is in ASCII 0~255.
-    int already_recv = 0;
-    char client_string[BUFFER_LEN] = {0};
+    int total_recv = 0;
+    unsigned char client_string[BUFFER_LEN] = {0};
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    while (already_recv < random){
+    while (total_recv < random){
         val_recv_ready = ready_to_recv(socketfd, opt);
         if (val_recv_ready < 0) {
             if (val_recv_ready == -1) {
@@ -390,18 +390,18 @@ int server_communicate(int socketfd, const Options &opt) {
             }
         }
 
-        val_recv = recv(socketfd, buffer+already_recv, minimum(random-already_recv, MAX_RECVLEN), 0);
+        val_recv = recv(socketfd, buffer+total_recv, minimum(random-total_recv, MAX_RECVLEN), 0);
         if (val_recv < 0) {
             graceful_return("recv", -10);
         }
         else if (val_recv == 0) {
             graceful_return("client offline", -3);
         }
-        else if (val_recv != minimum(random-already_recv, MAX_RECVLEN)) {
+        else if (val_recv != minimum(random-total_recv, MAX_RECVLEN)) {
             graceful_return("not received exact designated quantity of bytes", -10);
         }
         else {
-            already_recv += val_recv;
+            total_recv += val_recv;
         }
 
         memcpy(client_string, buffer, random);
@@ -441,17 +441,8 @@ int server_communicate(int socketfd, const Options &opt) {
     }
 
     // after server catch that client is closed, close s/c socket, write file
-    // check client status at every second
-    while(1){
-        if (peer_is_disconnected(socketfd)) {
-            close(socketfd);
-            break;
-        }
-        else {
-            sleep(1);
-        }
-    }
 
+    peer_is_disconnected(socketfd);
     if (write_file(h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
     }
@@ -473,15 +464,334 @@ int client_communicate(int socketfd, const Options &opt) {
     // return -9: ready_to_recv error
     // return -10: not received exact designated quantity of bytes
     // return -11: write_file error
+    // return -12: not received correct string
 
     // debug
     std::cout << "client_communicate" << std::endl;
-    char buffer[BUFFER_LEN];
-    int nbytes = recv(socketfd, buffer, 20, 0);
-    std::cout << nbytes << std::endl;
 
-    // return -1 if the connection is closed
-    return -1;
+    int val_recv_ready, val_recv;
+    char buffer[BUFFER_LEN] = {0};
+    // recv "StuNo" from server
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, strlen(STR_1), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+
+    if (!same_string(buffer, STR_1, strlen(STR_1))) {
+        graceful_return("not received correct string", -12);
+    }
+
+    int val_send_ready, val_send;
+    // send client student number
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+
+    uint32_t h_stuNo = STU_NO;
+    uint32_t n_stuNo = htonl(h_stuNo);
+    memcpy(buffer, &n_stuNo, sizeof(uint32_t));
+    val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
+    if (val_send != sizeof(uint32_t)) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
+
+    // recv "pid" from server
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, strlen(STR_2), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    
+    if (!same_string(buffer, STR_2, strlen(STR_2))) {
+        graceful_return("not received correct string", -12);
+    }
+
+    // send client pid
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+
+	uint32_t n_pid;
+	pid_t pid = getpid();
+					//if fork,	 send: pid
+	if(opt.fork)
+		n_pid = htonl((uint32_t)pid); 
+	else 			//if nofork, send: pid<<16 + socket_id
+		n_pid = htonl((uint32_t)( ((int)pid)<<16 + socketfd ));
+    
+    memcpy(buffer, &n_pid, sizeof(uint32_t));
+    val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
+    if (val_send != sizeof(uint32_t)) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
+
+    // recv "TIME" from server
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, strlen(STR_3), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    
+    if (!same_string(buffer, STR_3, strlen(STR_3))) {
+        graceful_return("not received correct string", -12);
+    }
+
+    // send client current time(yyyy-mm-dd hh:mm:ss, 19 bytes)
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+
+	char time_buf[20] = {0};
+	getCurrentTime(time_buf);
+    
+    strncpy(buffer, time_buf, 19);
+    val_send = send(socketfd, buffer, 19, MSG_NOSIGNAL);
+    if (val_send != 19) {
+        if (errno == EPIPE) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send == -1) {
+            graceful_return("send", -6);
+        }
+        else {
+            graceful_return("message sent is of wrong quantity of byte", -7);
+        }
+    }
+
+    // recv "str*****" from server and parse
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, 8, 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    
+    if (!same_string(buffer, "str", 3)) {
+        graceful_return("not received correct string", -12);
+    }
+    
+    int rand_length = parse_str(buffer);
+    if (rand_length == -1) {
+        graceful_return("not received correct string", -12);
+    }
+
+    // send random string in designated length
+    val_send_ready = ready_to_send(socketfd, opt);
+    if (val_send_ready < 0) {
+        if (val_send_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_send_ready == -2) {
+            graceful_return("time up", -2)
+        }
+        else if (val_send_ready == -3) {
+            graceful_return("client offline", -3);
+        }
+        else if (val_send_ready == -4) {
+            graceful_return("not permitted to send", -4);
+        }
+        else {
+            graceful_return("ready_to_send", -5);
+        }
+    }
+
+
+    unsigned char client_string[BUFFER_LEN] = {0};
+    creatRandomString(rand_length, client_string);
+
+    int total_send = 0;
+    while (total_send < rand_length) {
+        val_send = send(socketfd, client_string+total_send, minimum(rand_length-total_send, MAX_SENDLEN), MSG_NOSIGNAL);
+        if (val_send != minimum(rand_length-total_send, MAX_SENDLEN)) {
+            if (errno == EPIPE) {
+                graceful_return("client offline", -3);
+            }
+            else if (val_send == -1) {
+                graceful_return("send", -6);
+            }
+            else {
+                graceful_return("message sent is of wrong quantity of byte", -7);
+            }
+        }
+        else {
+            total_send += val_send;
+        }
+    }
+
+    // recv "end" from server
+    val_recv_ready = ready_to_recv(socketfd, opt);
+    if (val_recv_ready < 0) {
+        if (val_recv_ready == -1) {
+            graceful_return("select", -1);
+        }
+        else if (val_recv_ready == -2) {
+            graceful_return("time up", -2);
+        }
+        else if (val_recv_ready == -3) {
+            graceful_return("not permitted to recv", -8);
+        }
+        else {
+            graceful_return("ready_to_recv", -9);
+        }
+    }
+
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    val_recv = recv(socketfd, buffer, strlen(STR_4), 0);
+    if (val_recv < 0) {
+        graceful_return("recv", -10);
+    }
+    else if (val_recv == 0) {
+        graceful_return("client offline", -3);
+    }
+    
+    if (!same_string(buffer, STR_4, strlen(STR_4))) {
+        graceful_return("not received correct string", -12);
+    }
+    
+    close(socketfd);
+    if (write_file(h_stuNo, pid, time_buf, client_string) == -1) {
+        graceful_return("write_file", -11);
+    }
+
+    // return 0 as success
+    return 0;
 }
 
 int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
@@ -602,7 +912,7 @@ bool peer_is_disconnected(int socketfd) {
     return true;
 }
 
-int write_file(int stuNo, int pid, const char *time_str, const char *client_string) {
+int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string) {
     // return 0: all good
     // return -1: file open error
     std::ofstream myfile;
@@ -632,4 +942,43 @@ int getCurrentTime(char *time_str) {
 			nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
     memcpy(time_str, current, 19);
 	return 0;
+}
+
+int creatRandomString(const int length, unsigned char *random_string) {
+	unsigned char *p;
+    p = (unsigned char *)malloc(length+1);
+	srand((unsigned)time(NULL));
+	for(int i = 0; i <= length; i++) {
+		p[i] = rand() % 256;
+    }
+	p[length] = '\0';
+    memcpy(random_string, p, length+1);
+	return 0;
+}
+
+bool same_string(const char *str1, const char *str2, const int cmp_len) {
+    char cmp_1[100], cmp_2[100];
+    memcpy(cmp_1, str1, cmp_len);
+    memcpy(cmp_2, str2, cmp_len);
+    cmp_1[cmp_len] = '\0';
+    cmp_2[cmp_len] = '\0';
+	if(!strcmp(cmp_1, cmp_2)) {
+		return false;	//unexpected data        
+    }
+    else {
+        return true;
+    }
+
+}
+
+int parse_str(const char *str) {
+    char num[10] = {0};
+    strncpy(num, str+3, 5);
+    int parsed = atoi(num);
+    if (parsed < 32768 || parsed > 99999) {
+        return -1;      // unexpected
+    }
+    else {
+        return parsed;
+    }
 }
