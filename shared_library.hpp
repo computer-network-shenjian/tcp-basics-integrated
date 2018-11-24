@@ -52,7 +52,7 @@ int server_communicate(int socketfd, const Options &opt);
     // remember to handle partial sends here
 
 
-int client_communicate(int sockfd, const Options &opt)
+int client_communicate(int sockfd, const Options &opt);
     // exchange messages with server according to the protocol
     // Precondition: a connection is already established on socketfd
     // Postcondition: a sequence of messages are exchanged with the server,
