@@ -461,6 +461,19 @@ int server_communicate(int socketfd, const Options &opt) {
 }
 
 int client_communicate(int socketfd, const Options &opt) {
+    // return 0: all good
+    // return -1: select error
+    // return -2: time up
+    // return -3: client offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
+
     // debug
     std::cout << "client_communicate" << std::endl;
     char buffer[BUFFER_LEN];
