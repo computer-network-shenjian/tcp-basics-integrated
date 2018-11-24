@@ -234,10 +234,31 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
 }
 
 
+int _recv(int sockfd, fd_set &rfds, char *expecline, int cmp_len, const Options &opt);
+// --ARGUMENTS--
+//sockfd:    socket id
+//rfds:      fd_set for select()
+//expecline: comparing expecline and recvline, return -1 if they are not the same
+//cmp_len:   comparing only first cmp_len words of expecline and recvline
+// --RETURN--
+// -1   recv unexpected data
+//  0   nothing wrong, comparing succeed!
+
+int _send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options &opt);
+//function   client_send
+//sockfd:    socket id
+//rfds:      fd_set for select()
+//sendline:  (const char*) for send()
+//send_len:  sending only first send_len words of sendline
+// --RETURN--
+// -2   send error
+//  0   nothing wrong
+
 int client_fork(const Options &opt) {
     // can be either blocking or non-blocking
 
 }
+
 
 int client_nofork(const Options &opt) {
     // must be non-blocking
