@@ -12,6 +12,7 @@
 #include <thread>
 #include <chrono>
 #include <errno.h>
+#include <time.h>
 #include "../parse_arguments.hpp"
 #include "../shared_library.hpp"
 
@@ -19,19 +20,136 @@ using namespace std;
 
 
 struct sockaddr_in   servaddr;
-char recvline[MAXWORD], sendline[MAXWORD];
 int 	sockfd;
 fd_set  fds;
 int     flags, error = -1, slen = sizeof(int);
 
-int creat_connection(Options opt)
+//format: yyyy-mm-dd hh:mm:ss, 19 words
+char * getCurrentTime()
+{
+	timespec time;
+	clock_gettime(CLOCK_REALTIME, &time); 
+	tm nowTime;
+	localtime_r(&time.tv_sec, &nowTime);
+	char current[1024];
+	sprintf(current, "%04d-%02d-%02d %02d:%02d:%02d", 
+			nowTime.tm_year + 1900, nowTime.tm_mon, nowTime.tm_mday, 
+			nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
+	return current;
+}
+
+
+int client_recv(int sockfd, fd_set &rfds, char *expcline, const Options &opt)
+{
+	/*
+		nonblock/block not implement
+	*/
+	FD_ZERO(&rfds);		
+	FD_SET(sockfd, &rfds);	
+	if((select_rtn = select(sockfd+1, &rfds, NULL, NULL, NULL)) == -1)
+		graceful("client_recv select", -4);
+
+	if((n = recv(sockfd, recvline, 20, MSG_DONTWAIT)) == -1)
+		graceful("client_recv recv", -5);
+
+	recvline[n] = '\0';
+	printf("recv return: %d    message: %s\n", n, recvline);		
+	
+	if(!strcmp(recvline, expecline))
+		return -1;	//recv unexpected data
+
+	return 0;
+}
+
+
+int client_send(int sockfd, fd_set &wfds, char *sendline, int send_len, const Options &opt)
+{
+	/*
+		nonblock/block not implement
+	*/
+	FD_ZERO(&wfds);		
+	FD_SET(sockfd, &wfds);
+	if((select_rtn = select(sockfd+1, NULL, &wfds, NULL, NULL)) == -1)
+		graceful("client_send select", -4);
+	
+	if((n = send(sockfd, sendline, send_len, MSG_DONTWAIT)) == -1)
+		graceful("client_send send", -6);
+	
+	if(n != send_len)
+		return -2;	//send error
+
+	return 0;
+}
+
+
+int client_communicate(int sockfd, const Options &opt)
+{
+	int select_rtn, n;
+	char recvline[BUFFER_LEN], sendline[BUFFER_LEN], expecline[BUFFER_LEN];
+	fd_set rfds, wfds;
+	
+	memset(recvline, 0, sizeof(recvline));
+	memeset(sendline, 0, sizeof(sendline));
+	FD_ZERO(&rfds);		
+	FD_SET(sockfd, &rfds);	
+
+	//step 1: receive "StuNo" from server
+	strcpy(expecline, "StuNo");
+	if(client_recv(sockfd, rfds, expcline, opt) == -1)
+		return -1;
+
+	//step 2: send client student number
+	uint32_t h_stuNo = 1652571;
+	uint32_t n_stuNo = htonl(h_stuNo);	//hostlong to netlong
+	memcpy(sendline, &n_stuNo, sizeof(uint32_t));	
+	if(client_send(sockfd, wfds, sendline, sizeof(uint32_t), const Options &opt) == -2)
+		graceful("client_communicate send", -6);
+
+	//step 3: recv "pid" from server
+	strcpy(expecline, "pid");
+	if(client_recv(sockfd, rfds, expecline, opt) == -1)
+		return -1;
+
+	//step 4: send client pid
+	uint32_t n_pid;
+	pid_t pid = getpid();
+				//if fork,	 send: pid
+	if(opt.fork)
+		n_pid = htonl((uint32_t)pid); 
+				//if nofork, send: pid<<16 + socket_id
+	else
+		n_pid = htonl((uint32_t)( ((int)pid)<<16 + sockfd ));
+	memcpy(sendline, &n_pid, sizeof(uint32_t));	
+	if(client_send(sockfd, wfds, sendline, sizeof(uint32_t), const Options &opt) == -2)
+		graceful("client_communicate send", -6);
+
+	//step 5: recv "TIME" from server
+	strcpy(expecline, "TIME");
+	if(client_recv(sockfd, rfds, expecline, opt) == -1)
+		return -1;
+
+	//step 6: send client current time(yyyy-mm-dd hh:mm:ss, 19 words)
+	strcpy(sendline, getCurrentTime());	
+	if(client_send(sockfd, wfds, sendline, 19, const Options &opt) == -2)
+		graceful("client_communicate send", -6);
+
+	//step 7: recv "str*****" from server
+
+	//step 8: send rank string 
+
+	//step 9: recv "end" from server
+
+}
+
+
+int creat_connection(const Options &opt)
 {
 	if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
 		graceful("socket", -2);
 
-	//nonblock
 	if(!opt.block)
 	{
+		//nonblock
 		flags = fcntl(sockfd, F_GETFL, 0);
 		fcntl(sockfd, F_SETFL, flags | O_NONBLOCK);	
 
@@ -61,24 +179,30 @@ int creat_connection(Options opt)
 		if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
 			graceful("connect", -3);
 	}
-	/*
-		communication
-	*/
 
+	if(communicate(sockfd, opt) == -1)
+	{
+		/*
+			reconnect!
+		/*
+	}
 	/*
 		SO_LINGER check
 	*/
+	cout<<"client end!"<<endl;
 	close(sockfd);
 }
 
-int client_nofork(Options opt)
+
+int client_fork(const Options &opt)
 {
 	error = -1;
 	for(int i=0; i<opt.num; i++)
 		creat_connection(opt);
 }
 
-int client_fork(Options opt)
+
+int client_fork(const Options &opt)
 {
 	error = -1;
 	for(int i=0; i<opt.num; i++)
@@ -97,6 +221,7 @@ int client_fork(Options opt)
 	*/
 }
 
+
 int main(int argc, char *argv[]) {
 
     // process arguments
@@ -106,7 +231,7 @@ int main(int argc, char *argv[]) {
 	servaddr.sin_family = AF_INET;
 	servaddr.sin_port = htons(stoi(opt.port));
 	if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
-		graceful("Invalid ip", -1);
+		graceful("Invalid ip address", -1);
 
     if (opt.fork)
         client_fork(opt);
