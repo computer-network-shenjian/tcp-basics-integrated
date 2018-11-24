@@ -142,7 +142,7 @@ int write_file(int stuNo, int pid, const char *time_str, const unsigned char *cl
 int getCurrentTime(char *time_str);
     // format: yyyy-mm-dd hh:mm:ss, 19 bytes
 
-int creatRandomString(const int length, unsigned char *random_string);
+int create_random_str(const int length, unsigned char *random_string);
     // create random string with designated length
 
 bool same_string(const char *str1, const char *str2, const int cmp_len);

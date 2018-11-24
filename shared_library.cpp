@@ -734,7 +734,7 @@ int client_communicate(int socketfd, const Options &opt) {
 
 
     unsigned char client_string[BUFFER_LEN] = {0};
-    creatRandomString(rand_length, client_string);
+    create_random_str(rand_length, client_string);
 
     int total_send = 0;
     while (total_send < rand_length) {
@@ -944,7 +944,7 @@ int getCurrentTime(char *time_str) {
 	return 0;
 }
 
-int creatRandomString(const int length, unsigned char *random_string) {
+int create_random_str(const int length, unsigned char *random_string) {
 	unsigned char *p;
     p = (unsigned char *)malloc(length+1);
 	srand((unsigned)time(NULL));
