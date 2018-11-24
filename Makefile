@@ -20,7 +20,7 @@ all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) .tests
 
 ####### binary section
 $(TARGET_SERVER): $(TARGET_LIB)
-
+$(TARGET_CLIENT): $(TARGET_LIB)
 
 ####### library section
 SRC_LIB := parse_arguments.cpp shared_library.cpp
