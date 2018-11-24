@@ -3,8 +3,7 @@
 using namespace std;
 
 // get sockaddr. Supports IPv4 or IPv6:
-void *get_in_addr(struct sockaddr *sa)
-{
+void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
@@ -127,6 +126,7 @@ int server_communicate(int socketfd, const Options &opt) {
     // return -8: not permitted to recv
     // return -9: ready_to_recv error
     // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
 
     // debug
     std::cout << "server_communicate" << std::endl;
@@ -452,7 +452,9 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
 
-    write_file(h_stuNo, h_pid, time_buf, client_string);
+    if (write_file(h_stuNo, h_pid, time_buf, client_string) == -1) {
+        graceful_return("write_file", -11);
+    }
 
     // return 0 as success
     return 0;
@@ -610,22 +612,34 @@ bool peer_is_disconnected(int socketfd) {
     return true;
 }
 
-int write_file(int stuNo, int pid, const char *time, const char *client_string) {
-
-    // if all good, return 0.
+int write_file(int stuNo, int pid, const char *time_str, const char *client_string) {
+    // return 0: all good
+    // return -1: file open error
+    std::ofstream myfile;
+    std::stringstream ss_filename;
+    ss_filename << stuNo << '.' << pid << ".pid.txt";
+    std::string str_filename = ss_filename.str();
+    myfile.open(str_filename, std::ios::out|std::ios::trunc);
+    if (!myfile.is_open()) {
+        graceful_return("file open", -1);
+    }
+    myfile << stuNo << '\n';
+    myfile << pid << '\n';
+    myfile << time_str << '\n';
+    myfile << client_string << '\n';
+    myfile.close();
     return 0;
 }
 
-//format: yyyy-mm-dd hh:mm:ss, 19 words
-char * getCurrentTime()
-{
+int getCurrentTime(char *time_str) {
     timespec time;
-    clock_gettime(CLOCK_REALTIME, &time); 
-    tm nowTime;
-    localtime_r(&time.tv_sec, &nowTime);
-    char current[1024];
-    sprintf(current, "%04d-%02d-%02d %02d:%02d:%02d", 
-            nowTime.tm_year + 1900, nowTime.tm_mon, nowTime.tm_mday, 
-            nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
-    return current;
+	clock_gettime(CLOCK_REALTIME, &time); 
+	tm nowTime;
+	localtime_r(&time.tv_sec, &nowTime);
+	char current[1024];
+	sprintf(current, "%04d-%02d-%02d %02d:%02d:%02d", 
+			nowTime.tm_year + 1900, nowTime.tm_mon, nowTime.tm_mday, 
+			nowTime.tm_hour, nowTime.tm_min, nowTime.tm_sec);
+    memcpy(time_str, current, 19);
+	return 0;
 }

@@ -12,6 +12,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
+#include <time.h>
 
 #define MAX_RECVLEN     32768
 #define BUFFER_LEN      100000
@@ -84,6 +85,7 @@ int server_communicate(int socketfd, const Options &opt);
     // return -8: not permitted to recv
     // return -9: ready_to_recv error
     // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
 
 
 int client_communicate(int sockfd, const Options &opt);
@@ -123,8 +125,8 @@ int ready_to_recv(int socketfd, const Options &opt);
 bool peer_is_disconnected(int socketfd);
     // check if peer is disconnected
 
-int write_file(int stuNo, int pid, const char *time, const char *client_string);
+int write_file(int stuNo, int pid, const char *time_str, const char *client_string);
     // write file as designated
 
-char* getCurrentTime();
+int getCurrentTime(char *time_str);
     //format: yyyy-mm-dd hh:mm:ss, 19 bytes
