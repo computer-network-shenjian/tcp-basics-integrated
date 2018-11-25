@@ -582,8 +582,8 @@ int creat_connection(const Options &opt) {
         {
             std::cout << "fucked up with fuck code: " << error_code << std::endl;
             close(sockfd);
-            //continue;
-            break;
+            continue;
+            //break;
         }
         /*
             SO_LINGER check
