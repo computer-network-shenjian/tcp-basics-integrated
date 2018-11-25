@@ -4,7 +4,7 @@ using namespace std;
 
 int loop_server_nofork_2000_connections(int listener, const Options &opt) {
     // prepare variables used by select()
-    fd_set master, readfds;      // master file descriptor list
+    fd_set master, readfds, writefds;      // master file descriptor list
     FD_SET(listener, &master);
     int fdmax = listener;          // maximum file descriptor number
 
@@ -12,7 +12,8 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
     int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
-        int rv = select(fdmax+1, &readfds, NULL, NULL, NULL);
+        writefds = master;
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
 
         switch (rv) {
             case -1:
@@ -23,33 +24,17 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
                 break;
             default:
                 for (int i = 0; i <= fdmax; i++) {
-                    if (FD_ISSET(i, &readfds)) { // we got one
-                        FD_CLR(i, &readfds);
-                        if (i == listener) {
-                            // handle new connections;
-                            // debug: don't check for number of connections and
-                            // let the select handle max connections
-                            if (opt.block == false) { // must be taken with no fork
-                                int newfd = server_accept_client(listener, opt.block, &master, &fdmax);
-                                num_connections++;
-                                server_communicate(newfd, opt);
-                            }
-                            //if (opt.num - num_connections > 0) {
-                            //    server_accept_client(listener, opt.block, &master, &fdmax);
-                            //    num_connections++;
-                            //}
-                        } else {
+                    if (FD_ISSET(i, &readfds) && i == listener) { // we got one
+                       server_accept_client(listener, opt.block, &master, &fdmax);
+                    }  
+                    else if (FD_ISSET(i, &writefds)) {
                             // handle data
                             // debug: don't close connection
                             cout << "\nconnection\t" << num_connections << endl;
-                            
-                            if (false) {
-                                num_connections--;
-                                close(i); FD_CLR(i, &master);
-                            }
+                            server_communicate(i, opt);
+                            FD_CLR(i, &master);
                         }
-                    }
-                }
+                    } 
                 break;
         }
     // sleep(1);
