@@ -19,7 +19,6 @@ int server_bind_port(int listener, int listen_port) {
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
 
-
 int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
 
@@ -47,7 +46,6 @@ int get_listener(const Options &opt) {
     return listener;
 }
 
-
 int loop_server_fork(int listener, const Options &opt) {
     int num_connections = 0;
 
@@ -59,12 +57,20 @@ int loop_server_fork(int listener, const Options &opt) {
             num_connections--;
         } else {
             int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
-            if (fork() == 0) {
-                // in child
-                client_communicate(newfd, opt);
-            } else {
-                // in parent
-                num_connections++;
+            int fpid = fork();
+            switch (fpid) {
+                case 0:
+                    // in child
+                    client_communicate(newfd, opt);
+                    break;
+                case -1:
+                    // error
+                    graceful("loop_server_fork", -20);
+                    break;
+                default:
+                    // in parent
+                    num_connections++;
+                    break;
             }
         }
     }
@@ -1066,13 +1072,12 @@ bool same_string(const char *str1, const char *str2, const int cmp_len) {
     memcpy(cmp_2, str2, cmp_len);
     cmp_1[cmp_len] = '\0';
     cmp_2[cmp_len] = '\0';
-	if(!strcmp(cmp_1, cmp_2)) {
-		return false;	//unexpected data        
+    if(!strcmp(cmp_1, cmp_2)) {
+        return false;	//unexpected data        
     }
     else {
         return true;
     }
-
 }
 
 int parse_str(const char *str) {
