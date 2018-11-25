@@ -48,7 +48,6 @@ int main(int argc, char *argv[]) {
 
     // process arguments
     Options opt = parse_arguments(argc, argv, false);
-    cout << "DEBUG: num" << opt.num << endl;
 
     // socket(), set blocking/nonblocking, bind(), listen()
     int listener = get_listener(opt);
