@@ -1111,10 +1111,13 @@ int ready_to_recv(int socketfd, const Options &opt) {
     }
 }
 
-bool peer_is_disconnected(int socketfd) {
-    //sleep(1);
-    // if peer is disconnected
-    return true;
+int peer_is_disconnected(int socketfd) {
+    
+    char buf[10];
+    if(recv(socketfd, buf, 1, MSG_PEEK) == 0)
+        return true;
+    else
+        return false;
 }
 
 int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string) {
