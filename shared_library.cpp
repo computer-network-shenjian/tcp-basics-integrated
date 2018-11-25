@@ -49,6 +49,17 @@ int get_listener(const Options &opt) {
 
 int loop_server_fork(int listener, const Options &opt) {
     for (;;) {
+        if (!opt.block){
+            fd_set readfds;
+            FD_ZERO(&readfds);
+            FD_SET(listener, &readfds);
+            int rv = select(listener+1, &readfds, NULL, NULL, NULL);
+
+            if(rv == -1){
+                graceful("loop_server_fork", -20);
+            }
+        }
+
         int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
         int fpid = fork();
         switch (fpid) {
@@ -612,7 +623,8 @@ int ready_to_recv(int socketfd, const Options &opt) {
     tv.tv_sec = WAIT_TIME_S;
     tv.tv_usec = WAIT_TIME_US;
     errno = 0;
-    int val_select = select(socketfd+1, &readfds, NULL, NULL, &tv);
+    //int val_select = select(socketfd+1, &readfds, NULL, NULL, &tv);
+    int val_select = select(socketfd+1, &readfds, NULL, NULL, NULL);
     if (val_select < 0) {
         graceful_return("select", -1);
     }
@@ -707,19 +719,20 @@ int parse_str(const char *str) {
 int send_thing(const int socketfd, const char *str, const Options &opt, const int send_len) {
     int val_send_ready, val_send, total_send;
 
-    val_send_ready = ready_to_send(socketfd, opt);
-
-    if (val_send_ready < 0) {
-        if (val_send_ready > -5) {
-            return val_send_ready;
-        }
-        else {
-            graceful_return("ready_to_send", -5);
-        }
-    }
-
     total_send = 0;
     while (total_send < send_len) {
+
+        val_send_ready = ready_to_send(socketfd, opt);
+
+        if (val_send_ready < 0) {
+            if (val_send_ready > -5) {
+                return val_send_ready;
+            }
+            else {
+                graceful_return("ready_to_send", -5);
+            }
+        }
+
         val_send = send(socketfd, str+total_send, minimum(send_len-total_send, MAX_SENDLEN), MSG_NOSIGNAL);
         if (val_send != minimum(send_len-total_send, MAX_SENDLEN)) {
             if (errno == EPIPE) {
@@ -743,27 +756,30 @@ int send_thing(const int socketfd, const char *str, const Options &opt, const in
 
 int recv_thing(const int socketfd, char *buffer, const Options &opt, const int recv_len) {
     int val_recv_ready, val_recv, total_recv;
-    val_recv_ready = ready_to_recv(socketfd, opt);
-    if (val_recv_ready < 0) {
-        if (val_recv_ready == -1) {
-            return -1;
-        }
-        else if (val_recv_ready == -2) {
-            return -2;
-        }
-        else if (val_recv_ready == -3) {
-            return -8;
-        }
-        else {
-            graceful_return("ready_to_recv", -9);
-        }
-    }
 
     memset(buffer, 0, sizeof(char)*BUFFER_LEN);
+
     total_recv = 0;
     while (total_recv < recv_len) {
-        val_recv = recv(socketfd, buffer+total_recv, recv_len, 0);
+        errno = 0;
+        val_recv_ready = ready_to_recv(socketfd, opt);
+        if (val_recv_ready < 0) {
+            if (val_recv_ready == -1) {
+                return -1;
+            }
+            else if (val_recv_ready == -2) {
+                return -2;
+            }
+            else if (val_recv_ready == -3) {
+                return -8;
+            }
+            else {
+                graceful_return("ready_to_recv", -9);
+            }
+        }
+        val_recv = recv(socketfd, buffer+total_recv, MAX_SENDLEN, 0);
         if (val_recv < 0) {
+            cout << "DEBUG: total_recv: " << total_recv << ", val_recv: " << val_recv << endl;
             graceful_return("recv", -10);
         }
         else if (val_recv == 0) {
