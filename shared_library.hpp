@@ -29,6 +29,7 @@
 #define BUFFER_LEN      100000
 #define WAIT_TIME_S     1           // 1 s
 #define WAIT_TIME_US    500000      // 0.5 s
+#define MAX_CONN        1000        // no more than 1000 connections is allowed
 
 #define STR_1           "StuNo"
 #define STR_2           "pid"

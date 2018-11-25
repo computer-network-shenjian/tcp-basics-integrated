@@ -42,7 +42,7 @@ int get_listener(const Options &opt) {
     std::cout << "Listening on port " << listen_port << " on all interfaces...\n";
 
     // set listening
-    listen(listener,50);
+    listen(listener, 1000);
 
     return listener;
 }
@@ -80,15 +80,15 @@ int loop_server_fork(int listener, const Options &opt) {
 
 int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
-    fd_set master, readfds;      // master file descriptor list
+    fd_set master, readfds, writefds;      // master file descriptor list
     FD_SET(listener, &master);
-    int fdmax = listener;          // maximum file descriptor number
+    int fdmax = listener;          // maximum file descriptor number 
 
     // main loop
-    int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
-        int rv = select(fdmax+1, &readfds, NULL, NULL, NULL);
+        writefds = master;
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
         cout << "select returned with value\t" << rv ;
 
         switch (rv) {
@@ -100,21 +100,16 @@ int loop_server_nofork(int listener, const Options &opt) {
                 break;
             default:
                 for (int i = 0; i <= fdmax; i++) {
-                    if (FD_ISSET(i, &readfds)) { // we got one
-                        FD_CLR(i, &readfds);
-                        if (i == listener) {
-                            // handle new connections;
-                            if (opt.num - num_connections > 0) {
-                                server_accept_client(listener, opt.block, &master, &fdmax);
-                                num_connections++;
-                            }
-                        } else {
-                            // handle data
-                            if (server_communicate(i, opt) == -1) {
-                                num_connections--;
-                                close(i); FD_CLR(i, &master);
-                            }
+                    if (!FD_ISSET(i, &readfds) && FD_ISSET(i, &writefds))  { // we got a writable socket
+                        // because the first message requires the client socket to be writable
+
+                        // handle data
+                        if (server_communicate(i, opt) < 0) {
+                            close(i); FD_CLR(i, &master);
                         }
+                    } else if (FD_ISSET(i, &readfds) && (i == listener)) { // we got a new client
+                        // handle new connections;
+                        server_accept_client(listener, opt.block, &master, &fdmax);
                     }
                 }
                 break;

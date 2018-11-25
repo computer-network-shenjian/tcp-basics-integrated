@@ -3,8 +3,23 @@
 using namespace std;
 
 int client_nofork(const Options &opt) {
-    for(unsigned int i=0; i<opt.num; i++)
-        creat_connection(opt);
+    // initialize opt.num many connections and add them to the master set.
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+
+    // initialize connections
+    fd_set master;
+    for (int i = 0; i < opt.num; i++) {
+        FD_SET(create_connection(opt), &master);
+    }
+
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+    for (int i = 0; i < opt.num; i++) {
+        FD_SET(create_connection(opt), &master);
+    }
+
+
     return 0;
 }
 
@@ -18,8 +33,10 @@ int client_fork(const Options &opt) {
         if(fpid < 0)
             graceful("fork", -10);
         else if(fpid == 0)
+            // in parent
             break;
         else
+            // in child
             continue;
     }
 
@@ -27,16 +44,13 @@ int client_fork(const Options &opt) {
         for(j=0; j<opt.num; j++)
             wait();
     else
-        creat_connection(opt);
+        create_connection(opt);
 
     return 0;
 }
 
-
-int creat_connection(const Options &opt) {
-    int sockfd;
-    fd_set fds;      
-    int error = -1, slen = sizeof(int);
+int create_connection(const Options &opt) {
+    // create a connection from opt
 
     struct sockaddr_in   servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
@@ -45,6 +59,62 @@ int creat_connection(const Options &opt) {
     if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
         graceful("Invalid ip address", -1);
 
+    // get a socket
+    int sockfd;
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        graceful("socket", -2);
+
+    // connect
+    if (!opt.block) { //non-blocking
+        int flags = fcntl(sockfd, F_GETFL, 0);
+        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK); 
+
+        if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
+            // EINPROGRESS means connection is in progress
+            // then select on it
+            fd_set fds;      
+            if(errno != EINPROGRESS)
+                graceful("connect", -3);
+            
+            FD_ZERO(&fds);      
+            FD_SET(sockfd, &fds);       
+            int select_rtn;
+
+            if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0) {
+                int error = -1, slen = sizeof(int);
+                getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
+                //error == 0 means connect succeeded
+                if(error != 0) graceful("connect", -3);
+            }
+        }
+        //connect succeed   
+    } else { // blocking
+        if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
+            graceful("connect", -3);
+    }
+    return sockfd;
+}
+
+int create_connections(int socketfd, const Options &opt) {
+
+    // create connections
+    for (int i = 0; i < opt.num; i++) {
+
+
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    // send data
     //reconnection flag
     bool reconn = true;
     while(reconn)
@@ -83,8 +153,6 @@ int creat_connection(const Options &opt) {
         //block
         else
         {
-            if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-                graceful("connect", -3);
         }
 
         // debug
@@ -103,9 +171,13 @@ int creat_connection(const Options &opt) {
     return 0;
 }
 
+
 int main(int argc, char *argv[]) {
     // process arguments
     Options opt = parse_arguments(argc, argv, true);
+
+    // create connections
+
 
     if (opt.fork)
         client_fork(opt);
