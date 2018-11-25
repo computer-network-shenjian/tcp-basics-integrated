@@ -342,7 +342,7 @@ int client_fork(const Options &opt) {
     if(i == opt.num)    //fp
         for(j=0; j<opt.num; j++)
             wait();
-    else
+    //else
         // creat_connection(opt);
 
     return 0;
@@ -366,7 +366,6 @@ int client_communicate(int socketfd, const Options &opt) {
     // debug
     std::cout << "client_communicate" << std::endl;
 
-    int val_recv_ready, val_recv, total_recv;
     char buffer[BUFFER_LEN] = {0};
     int var_recv_thing = 0;
     // 1. recv "StuNo" from server
@@ -380,7 +379,6 @@ int client_communicate(int socketfd, const Options &opt) {
         graceful_return("not received correct string", -12);
     }
 
-    int val_send_ready, val_send;
     int val_send_thing;
     // 2. send client student number
     uint32_t h_stuNo = STU_NO;
@@ -609,7 +607,6 @@ int ready_to_recv(int socketfd, const Options &opt) {
         graceful_return("not permitted to recv", -3);
     }
 }
-
 
 bool peer_is_disconnected(int socketfd) {  
     char buf[10];
