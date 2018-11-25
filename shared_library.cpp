@@ -355,6 +355,13 @@ void handler(int sig) {
     }
 }
 
+pid_t r_wait(int * stat_loc)
+{
+    int revalue;
+    while(((revalue = wait(stat_loc)) == -1) && (errno == EINTR));//如果等待的过程中被一个不可阻塞的信号终断则继续循环等待
+    return revalue;
+}
+
 int client_fork(const Options &opt) {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     signal(SIGUSR1, handler); // register handler to handle failed connections
@@ -371,8 +378,10 @@ int client_fork(const Options &opt) {
                 if (client_communicate(newfd, opt) < 0) {
                     kill(getppid(), SIGUSR1);
                 }
-                while(1) sleep(10); // hold pid to avoid log file name collition
-                break;
+               // while(1) sleep(10); // hold pid to avoid log file name collition
+                sleep(1);
+               // printf("test\n");
+                return 0;
             case -1:
                 // error
                 graceful("client_fork", -20);
@@ -382,6 +391,7 @@ int client_fork(const Options &opt) {
                 break;
         }
     }
+    while(r_wait(NULL) > 0);    //wait for all the subprocess.
 
     return 0;
 }

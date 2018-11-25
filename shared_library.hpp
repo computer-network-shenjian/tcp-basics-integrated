@@ -23,6 +23,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/prctl.h>
+#include <sys/wait.h>
 
 #include "parse_arguments.hpp"
 
