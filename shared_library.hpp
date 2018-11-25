@@ -148,7 +148,7 @@ int ready_to_recv(int socketfd, const Options &opt);
 bool peer_is_disconnected(int socketfd);
     // check if peer is disconnected
 
-int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string);
+int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string);
     // write file as designated
 
 int str_current_time(char *time_str);

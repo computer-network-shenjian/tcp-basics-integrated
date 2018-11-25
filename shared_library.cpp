@@ -388,7 +388,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     int random = rand() % 67232 + 32768;
     std::stringstream ss;
-    ss << "str" << random << '\0';
+    ss << "str" << random;
     str = ss.str();
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
     if (val_send != (int)str.length()+1) {
@@ -403,6 +403,7 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
     std::cout << "server send " << str.c_str() << std::endl;
+
     // server recv a random string with length *****, and each character is in ASCII 0~255.
     unsigned char client_string[BUFFER_LEN] = {0};
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
@@ -439,7 +440,8 @@ int server_communicate(int socketfd, const Options &opt) {
         }
 
         memcpy(client_string, buffer, random);
-    }    
+    }
+    std::cout << "server recv ok" << std::endl;
 
     // server send a string "end"
     val_send_ready = ready_to_send(socketfd, opt);
@@ -477,9 +479,15 @@ int server_communicate(int socketfd, const Options &opt) {
     // after server catch that client is closed, close s/c socket, write file
 
     peer_is_disconnected(socketfd);
-    if (write_file(h_stuNo, h_pid, time_buf, client_string) == -1) {
+
+    std::cout << "server begin write file" << std::endl;
+    std::stringstream ss_filename;
+    ss_filename << h_stuNo << '.' << h_pid << ".pid-s.txt";
+    std::string str_filename = ss_filename.str();
+    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
     }
+    std::cout << "server end write file" << std::endl;
 
     // return 0 as success
     return 0;
@@ -781,8 +789,8 @@ int client_communicate(int socketfd, const Options &opt) {
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
     total_recv = 0;
-    while (total_recv < (int)strlen(STR_3)) {
-        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_3), 0);
+    while (total_recv < (int)strlen(STR_3)+1) {
+        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_3)+1, 0);
         if (val_recv < 0) {
             graceful_return("recv", -10);
         }
@@ -854,11 +862,10 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
-    std::cout << "begin" << std::endl;
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
     total_recv = 0;
-    while (total_recv < 8) {
-        val_recv = recv(socketfd, buffer+total_recv, 8, 0);
+    while (total_recv < 9) {
+        val_recv = recv(socketfd, buffer+total_recv, 9, 0);
         if (val_recv < 0) {
             graceful_return("recv", -10);
         }
@@ -869,7 +876,6 @@ int client_communicate(int socketfd, const Options &opt) {
             total_recv += val_recv;
         }
     }
-    std::cout << "end" << std::endl;
 
     std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, "str", 3)) {
@@ -880,6 +886,8 @@ int client_communicate(int socketfd, const Options &opt) {
     if (rand_length == -1) {
         graceful_return("not received correct string", -12);
     }
+
+    std::cout << "rand number: " << rand_length << std::endl;
 
     // send random string in designated length
     val_send_ready = ready_to_send(socketfd, opt);
@@ -923,6 +931,8 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "client send ok" << std::endl;
+
     // recv "end" from server
     val_recv_ready = ready_to_recv(socketfd, opt);
     if (val_recv_ready < 0) {
@@ -945,6 +955,7 @@ int client_communicate(int socketfd, const Options &opt) {
     while (total_recv < (int)strlen(STR_4)) {
         val_recv = recv(socketfd, buffer+total_recv, strlen(STR_4), 0);
         if (val_recv < 0) {
+            std::cout << total_recv << std::endl;
             graceful_return("recv", -10);
         }
         else if (val_recv == 0) {
@@ -959,11 +970,16 @@ int client_communicate(int socketfd, const Options &opt) {
     if (!same_string(buffer, STR_4, strlen(STR_4))) {
         graceful_return("not received correct string", -12);
     }
-    
+
     close(socketfd);
-    if (write_file(h_stuNo, h_pid, time_buf, client_string) == -1) {
+    std::cout << "client begin write file" << std::endl;
+    std::stringstream ss_filename;
+    ss_filename << h_stuNo << '.' << h_pid << ".pid-c.txt";
+    std::string str_filename = ss_filename.str();
+    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
     }
+    std::cout << "client end write file" << std::endl;
 
     // return 0 as success
     return 0;
@@ -1035,14 +1051,12 @@ int ready_to_send(int socketfd, const Options &opt) {
     else if (val_select == 0) {
         graceful_return("time up and no change", -2);
     }
-/*
-	else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
-        FD_ZERO(&readfds);
-        FD_ZERO(&writefds);
-		close(socketfd);
-		graceful_return("peer offline", -3);
-	}
-*/
+	//else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
+        //FD_ZERO(&readfds);
+        //FD_ZERO(&writefds);
+		//close(socketfd);
+		//graceful_return("peer offline", -3);
+	//}
     else if (FD_ISSET(socketfd, &writefds)){
         FD_ZERO(&writefds);
         return 1;
@@ -1089,13 +1103,10 @@ bool peer_is_disconnected(int socketfd) {
     return true;
 }
 
-int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string) {
+int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string) {
     // return 0: all good
     // return -1: file open error
     std::ofstream myfile;
-    std::stringstream ss_filename;
-    ss_filename << stuNo << '.' << pid << ".pid.txt";
-    std::string str_filename = ss_filename.str();
     myfile.open(str_filename, std::ios::out|std::ios::trunc);
     if (!myfile.is_open()) {
         graceful_return("file open", -1);
