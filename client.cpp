@@ -4,7 +4,7 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
     // process arguments
-    Options opt = parse_arguments(argc, argv, true);
+    opt = parse_arguments(argc, argv, true);
 
     if (opt.fork)
         client_fork(opt);

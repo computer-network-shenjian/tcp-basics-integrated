@@ -15,12 +15,14 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <signal.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/prctl.h>
 
 #include "parse_arguments.hpp"
 
@@ -54,6 +56,8 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 */
 
 #define minimum(a, b) (a < b ? a : b)
+
+Options opt; // work around for not retransmission from signal
 
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
