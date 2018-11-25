@@ -1,19 +1,3 @@
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <string>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <ifaddrs.h>
-#include <netdb.h>
-#include <thread>
-#include <chrono>
-#include <fcntl.h>  // setting non-blocking socket option
-#include <netinet/tcp.h>
 #include "../shared_library.hpp"
 
 using namespace std;
@@ -57,6 +41,9 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
                             // handle data
                             // debug: don't close connection
                             cout << "\nconnection\t" << num_connections << endl;
+                            
+                            
+                            
                             if (false) {
                                 num_connections--;
                                 close(i); FD_CLR(i, &master);
@@ -66,7 +53,9 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
                 }
                 break;
         }
+    sleep(1);
     }
+
     return 0;
 }
 
