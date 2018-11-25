@@ -123,7 +123,6 @@ int client_communicate(int socketfd, const Options &opt);
     // return -11: write_file error
     // return -12: not received correct string
 
-
 // client specific
 int client_nofork(const Options &opt);
     // must be non-blocking 
@@ -132,8 +131,6 @@ int client_fork(const Options &opt);
 
 int creat_connection(const Options &opt);
     //reconnect implemented, only return after correctly communicating with server 
-
-
 
 int ready_to_send(int socketfd, const Options &opt);
     // return 1 means ready to send
