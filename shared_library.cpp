@@ -48,6 +48,7 @@ int get_listener(const Options &opt) {
 }
 
 int loop_server_fork(int listener, const Options &opt) {
+    // wrong
     int num_connections = 0;
 
     if (opt.block) {
@@ -65,8 +66,6 @@ int loop_server_fork(int listener, const Options &opt) {
                 break;
             default:
                 // in parent
-                int wstatus = 0;
-                wait(&wstatus);
                 num_connections++;
                 break;
         }
@@ -78,7 +77,6 @@ int loop_server_fork(int listener, const Options &opt) {
         if (num_connections >= (int)opt.num) {
             // saturated
             int wstatus = 0;
-            wait(&wstatus);
             if (wstatus >= 0)
                 num_connections--;
         } else {
@@ -511,6 +509,52 @@ int server_communicate(int socketfd, const Options &opt) {
 
     // return 0 as success
     return 0;
+}
+
+int create_connection(const Options &opt) {
+    // create a connection from opt
+
+    struct sockaddr_in   servaddr;
+    memset(&servaddr, 0, sizeof(servaddr));
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_port = htons(stoi(opt.port));
+    if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
+        graceful("Invalid ip address", -1);
+
+    // get a socket
+    int sockfd;
+    if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        graceful("socket", -2);
+
+    // connect
+    if (!opt.block) { //non-blocking
+        int flags = fcntl(sockfd, F_GETFL, 0);
+        fcntl(sockfd, F_SETFL, flags | O_NONBLOCK); 
+
+        if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
+            // EINPROGRESS means connection is in progress
+            // then select on it
+            fd_set fds;      
+            if(errno != EINPROGRESS)
+                graceful("connect", -3);
+            
+            FD_ZERO(&fds);      
+            FD_SET(sockfd, &fds);       
+            int select_rtn;
+
+            if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0) {
+                int error = -1, slen = sizeof(int);
+                getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
+                //error == 0 means connect succeeded
+                if(error != 0) graceful("connect", -3);
+            }
+        }
+        //connect succeed   
+    } else { // blocking
+        if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
+            graceful("connect", -3);
+    }
+    return sockfd;
 }
 
 int client_nofork(const Options &opt) {
