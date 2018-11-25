@@ -15,8 +15,7 @@
 #include <time.h>
 #include <malloc.h>
 #include <fstream>
-#include "./shared_library.hpp"
-#include "./parse_arguments.hpp"
+#include "../shared_library.hpp"
 
 using namespace std;
 

@@ -948,7 +948,7 @@ int ready_to_send(int socketfd, const Options &opt) {
     // return -2: time up
     // return -3: server offline
     // return -4: not permitted to send
-    if (!opt.block) {
+    if (opt.block) {
         return 1;
     }
     fd_set readfds, writefds;
@@ -987,7 +987,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     // return -1: select error
     // return -2: time up
     // return -3: not permitted to recv
-    if (!opt.block) {
+    if (opt.block) {
         return 1;
     }
     fd_set readfds;
