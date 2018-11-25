@@ -6,17 +6,9 @@ SRC_CLIENT := client.cpp
 TARGET_SERVER := $(SRC_SERVER:.cpp=)
 TARGET_CLIENT := $(SRC_CLIENT:.cpp=)
 
-
 TARGET_LIB := libg3.so
 
-
-SRC_TESTS := $(wildcard tests/*.cpp)
-TARGET_TESTS := $(patsubst tests/%.cpp,tests/%,$(SRC_TESTS))
-
-.tests: $(TARGET_TESTS) # prepend a dot to avoid setting default
-
-all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT) .tests
-notest: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT)
+all: $(TARGET_LIB) $(TARGET_SERVER) $(TARGET_CLIENT)
 
 
 ####### binary section
@@ -32,16 +24,9 @@ LIB_FLAGS := -L. -lg3
 $(TARGET_LIB): $(OBJ_LIB) $(HEADER_LIB)
 	$(CXX) $(LDFLAGS) $(CXXFLAGS) -shared -o $@ $^
 
-
-######## tests section
-tests/%: tests/%.cpp $(TARGET_LIB)
-	$(CXX) $(CXXFLAGS) $(LIB_FLAGS) -o $@ $<
-
-
 ######## misc
 RM := rm -f
-.PHONY : clean all tests
+.PHONY : clean all
 clean :
 	$(RM) $(TARGET_SERVER) $(TARGET_CLIENT)
 	$(RM) $(OBJ_LIB) $(TARGET_LIB)
-	$(RM) $(OBJ_TESTS) $(TARGET_TESTS)
