@@ -8,25 +8,28 @@ int client_nofork(const Options &opt) {
     // close on network failure
 
     // initialize connections
-    fd_set master;
+    //fd_set master;
+    int sockets[opt.num];
     for (int i = 0; i < opt.num; i++) {
-        FD_SET(create_connection(opt), &master);
+        //FD_SET(create_connection(opt), &master);
+        sockets[i] = create_connection(opt);
     }
 
     // exchange data on these connections, creating new connections when these connections
     // close on network failure
     for (int i = 0; i < opt.num; i++) {
-        FD_SET(create_connection(opt), &master);
+        if (client_communicate(i, opt) < 0) {
+            sockets[i] = create_connection(opt);
+            continue;
+        }
     }
-
 
     return 0;
 }
 
 int client_fork(const Options &opt) {
     // int status;
-    unsigned int i, j;
-    for(i=0; i<opt.num; i++)
+    for(int i = 0; i<opt.num; i++)
     {
         pid_t fpid;
         fpid = fork();
@@ -41,7 +44,7 @@ int client_fork(const Options &opt) {
     }
 
     if(i == opt.num)    //fp
-        for(j=0; j<opt.num; j++)
+        for(int j=0; j<opt.num; j++)
             wait();
     else
         create_connection(opt);

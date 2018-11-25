@@ -50,12 +50,37 @@ int get_listener(const Options &opt) {
 int loop_server_fork(int listener, const Options &opt) {
     int num_connections = 0;
 
+    if (opt.block) {
+        int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
+
+        int fpid = fork();
+        switch (fpid) {
+            case 0:
+                // in child
+                _exit(client_communicate(newfd, opt));
+                break;
+            case -1:
+                // error
+                graceful("loop_server_fork", -20);
+                break;
+            default:
+                // in parent
+                int wstatus = 0;
+                wait(&wstatus);
+                num_connections++;
+                break;
+        }
+
+    }
+
     // main loop
     for (;;) {
         if (num_connections >= (int)opt.num) {
             // saturated
-            wait();
-            num_connections--;
+            int wstatus = 0;
+            wait(&wstatus);
+            if (wstatus >= 0)
+                num_connections--;
         } else {
             int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
             int fpid = fork();
@@ -489,8 +514,26 @@ int server_communicate(int socketfd, const Options &opt) {
 }
 
 int client_nofork(const Options &opt) {
-    for(unsigned int i=0; i<opt.num; i++)
-        creat_connection(opt);
+    // initialize opt.num many connections and add them to the master set.
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+
+    // initialize connections
+    //fd_set master;
+    int sockets[opt.num];
+    for (int i = 0; i < opt.num; i++) {
+        //FD_SET(create_connection(opt), &master);
+        sockets[i] = create_connection(opt);
+    }
+
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+    for (int i = 0; i < opt.num; i++) {
+        if (client_communicate(i, opt) < 0) {
+            sockets[i] = create_connection(opt);
+            continue;
+        }
+    }
     return 0;
 }
 
