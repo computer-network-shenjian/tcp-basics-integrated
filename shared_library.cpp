@@ -375,6 +375,7 @@ void handler(int sig) {
    }
 }
 
+
 pid_t r_wait(int * stat_loc)
 {
     int revalue;
@@ -383,19 +384,11 @@ pid_t r_wait(int * stat_loc)
 }
 
 int client_fork(const Options &opt) {
-
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     signal(SIGUSR1, handler); // register handler to handle failed connections
-    
-    int num_good = 0;
-    int pipe_fd[1000][2];
-    for(int i = 0; i < 1000; i++) {
-        if (pipe(pipe_fd[i]) < 0) {
-            perror("pipeÊ§°Ü");
-            exit(EXIT_FAILURE);
-        }
-    }
-    while (num_good < 1000) {
+
+    for (unsigned int i = 0; i < opt.num; i++) {
+        // assume block
         int fpid = fork();
 
         int newfd;
@@ -405,9 +398,7 @@ int client_fork(const Options &opt) {
                 prctl(PR_SET_PDEATHSIG, SIGHUP); 
                 newfd = create_connection(opt);
                 if (client_communicate(newfd, opt) < 0) {
-                    // kill(getppid(), SIGUSR1);
-                } else {
-
+                    kill(getppid(), SIGUSR1);
                 }
                // while(1) sleep(10); // hold pid to avoid log file name collition
                 sleep(1);
@@ -419,7 +410,6 @@ int client_fork(const Options &opt) {
                 break;
             default:
                 // in parent
-                int pipe_fd[2];
                 break;
         }
     }
