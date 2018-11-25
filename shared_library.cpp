@@ -131,6 +131,9 @@ int server_communicate(int socketfd, const Options &opt) {
 
     int val_send_thing;
     std::string str;
+    char buffer[BUFFER_LEN] = {0};
+    int var_recv_thing;
+    
     // 1. server send a string "StuNo"
     val_send_thing = send_thing(socketfd, STR_1, opt, strlen(STR_1));
     if (val_send_thing < 0) {
@@ -138,8 +141,6 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     std::cout << "server send " << STR_1 << std::endl;
 
-    char buffer[BUFFER_LEN] = {0};
-    int var_recv_thing;
     // 2. server recv an int as student number, network byte order
     uint32_t h_stuNo = 0;
     uint32_t n_stuNo = 0;
@@ -305,10 +306,11 @@ int client_nofork(const Options &opt) {
 
     // initialize connections
     //fd_set master;
-    int sockets[1000];
+    int sockets[2000];
     for (int i = 0; i < (int)opt.num; i++) {
         //FD_SET(create_connection(opt), &master);
         sockets[i] = create_connection(opt);
+        cout << "DEBUG: sockets created and connected: " << i+1 << endl;
     }
 
     // exchange data on these connections, creating new connections when these connections
@@ -368,6 +370,8 @@ int client_communicate(int socketfd, const Options &opt) {
 
     char buffer[BUFFER_LEN] = {0};
     int var_recv_thing = 0;
+    int val_send_thing = 0;
+    
     // 1. recv "StuNo" from server
     var_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_1));
     if (var_recv_thing < 0) {
@@ -379,7 +383,6 @@ int client_communicate(int socketfd, const Options &opt) {
         graceful_return("not received correct string", -12);
     }
 
-    int val_send_thing;
     // 2. send client student number
     uint32_t h_stuNo = STU_NO;
     uint32_t n_stuNo = htonl(h_stuNo);
