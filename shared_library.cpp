@@ -49,23 +49,20 @@ int get_listener(const Options &opt) {
 
 int loop_server_fork(int listener, const Options &opt) {
     for (;;) {
-        if (opt.block) {
-            int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
-            int fpid = fork();
-            switch (fpid) {
-                case 0:
-                    // in child
-                    _exit(server_communicate(newfd, opt));
-                    break;
-                case -1:
-                    // error
-                    graceful("loop_server_fork", -20);
-                    break;
-                default:
-                    // in parent
-                    break;
-            }
-        } else {
+        int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
+        int fpid = fork();
+        switch (fpid) {
+            case 0:
+                // in child
+                _exit(server_communicate(newfd, opt));
+                break;
+            case -1:
+                // error
+                graceful("loop_server_fork", -20);
+                break;
+            default:
+                // in parent
+                break;
         }
     }
     return 0;
