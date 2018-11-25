@@ -90,7 +90,7 @@ int server_communicate(int socketfd, const Options &opt);
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -112,7 +112,7 @@ int client_communicate(int socketfd, const Options &opt);
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -136,7 +136,7 @@ int ready_to_send(int socketfd, const Options &opt);
     // return 1 means ready to send
     // return -1: select error
     // return -2: time up
-    // return -3: server offline
+    // return -3: peer offline
     // return -4: not permitted to send
 
 int ready_to_recv(int socketfd, const Options &opt);

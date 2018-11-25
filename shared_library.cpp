@@ -127,7 +127,7 @@ int server_communicate(int socketfd, const Options &opt) {
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -152,7 +152,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -165,7 +165,7 @@ int server_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -175,7 +175,7 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
 
-    int val_recv_ready, val_recv;
+    int val_recv_ready, val_recv, total_recv;
     char buffer[BUFFER_LEN] = {0};
     // server recv an int as student number, network byte order
     uint32_t h_stuNo = 0;
@@ -198,17 +198,21 @@ int server_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, sizeof(uint32_t), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < (int)sizeof(uint32_t)) {
+        val_recv = recv(socketfd, buffer+total_recv, sizeof(uint32_t), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    else {
-        memcpy(&n_stuNo, buffer, sizeof(uint32_t));
-        h_stuNo = ntohl(n_stuNo);
-    }
+    memcpy(&n_stuNo, buffer, sizeof(uint32_t));
+    h_stuNo = ntohl(n_stuNo);
 
     // server send a string "pid"
     val_send_ready = ready_to_send(socketfd, opt);
@@ -220,7 +224,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -233,7 +237,7 @@ int server_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -264,17 +268,21 @@ int server_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, sizeof(uint32_t), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < (int)sizeof(uint32_t)) {
+        val_recv = recv(socketfd, buffer+total_recv, sizeof(uint32_t), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    else {
-        memcpy(&n_pid, buffer, sizeof(uint32_t));
-        h_pid = ntohl(n_pid);
-    }
+    memcpy(&n_pid, buffer, sizeof(uint32_t));
+    h_pid = ntohl(n_pid);
 
     // server send a string "TIME"
     val_send_ready = ready_to_send(socketfd, opt);
@@ -286,7 +294,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -299,7 +307,7 @@ int server_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -329,14 +337,20 @@ int server_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, 19, 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < 19) {
+        val_recv = recv(socketfd, buffer+total_recv, 19, 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    else if (val_recv != 19) {
+    if (total_recv != 19) {
         graceful_return("not received exact designated quantity of bytes", -10);
     }
     else {
@@ -353,7 +367,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -369,7 +383,7 @@ int server_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -379,9 +393,9 @@ int server_communicate(int socketfd, const Options &opt) {
         }
     }
     // server recv a random string with length *****, and each character is in ASCII 0~255.
-    int total_recv = 0;
     unsigned char client_string[BUFFER_LEN] = {0};
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    total_recv = 0;
     while (total_recv < random){
         val_recv_ready = ready_to_recv(socketfd, opt);
         if (val_recv_ready < 0) {
@@ -404,7 +418,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("recv", -10);
         }
         else if (val_recv == 0) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_recv != minimum(random-total_recv, MAX_RECVLEN)) {
             graceful_return("not received exact designated quantity of bytes", -10);
@@ -426,7 +440,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -439,7 +453,7 @@ int server_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -562,7 +576,7 @@ int client_communicate(int socketfd, const Options &opt) {
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -576,7 +590,7 @@ int client_communicate(int socketfd, const Options &opt) {
     // debug
     std::cout << "client_communicate" << std::endl;
 
-    int val_recv_ready, val_recv;
+    int val_recv_ready, val_recv, total_recv;
     char buffer[BUFFER_LEN] = {0};
     // recv "StuNo" from server
     val_recv_ready = ready_to_recv(socketfd, opt);
@@ -596,12 +610,18 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, strlen(STR_1), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
-    }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
+    total_recv = 0;
+    while (total_recv < (int)strlen(STR_1)) {
+        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_1), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
 
     if (!same_string(buffer, STR_1, strlen(STR_1))) {
@@ -619,7 +639,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -635,7 +655,7 @@ int client_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
     if (val_send != sizeof(uint32_t)) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -663,14 +683,20 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, strlen(STR_2), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < (int)strlen(STR_2)) {
+        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_2), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    
+
     if (!same_string(buffer, STR_2, strlen(STR_2))) {
         graceful_return("not received correct string", -12);
     }
@@ -685,7 +711,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -707,7 +733,7 @@ int client_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
     if (val_send != sizeof(uint32_t)) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -735,14 +761,20 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, strlen(STR_3), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < (int)strlen(STR_3)) {
+        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_3), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    
+
     if (!same_string(buffer, STR_3, strlen(STR_3))) {
         graceful_return("not received correct string", -12);
     }
@@ -757,7 +789,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -774,7 +806,7 @@ int client_communicate(int socketfd, const Options &opt) {
     val_send = send(socketfd, buffer, 19, MSG_NOSIGNAL);
     if (val_send != 19) {
         if (errno == EPIPE) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send == -1) {
             graceful_return("send", -6);
@@ -802,14 +834,20 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, 8, 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < 8) {
+        val_recv = recv(socketfd, buffer+total_recv, 8, 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    
+
     if (!same_string(buffer, "str", 3)) {
         graceful_return("not received correct string", -12);
     }
@@ -829,7 +867,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("time up", -2)
         }
         else if (val_send_ready == -3) {
-            graceful_return("client offline", -3);
+            graceful_return("peer offline", -3);
         }
         else if (val_send_ready == -4) {
             graceful_return("not permitted to send", -4);
@@ -839,7 +877,6 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
-
     unsigned char client_string[BUFFER_LEN] = {0};
     create_random_str(rand_length, client_string);
 
@@ -848,7 +885,7 @@ int client_communicate(int socketfd, const Options &opt) {
         val_send = send(socketfd, client_string+total_send, minimum(rand_length-total_send, MAX_SENDLEN), MSG_NOSIGNAL);
         if (val_send != minimum(rand_length-total_send, MAX_SENDLEN)) {
             if (errno == EPIPE) {
-                graceful_return("client offline", -3);
+                graceful_return("peer offline", -3);
             }
             else if (val_send == -1) {
                 graceful_return("send", -6);
@@ -880,14 +917,20 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    val_recv = recv(socketfd, buffer, strlen(STR_4), 0);
-    if (val_recv < 0) {
-        graceful_return("recv", -10);
+    total_recv = 0;
+    while (total_recv < (int)strlen(STR_4)) {
+        val_recv = recv(socketfd, buffer+total_recv, strlen(STR_4), 0);
+        if (val_recv < 0) {
+            graceful_return("recv", -10);
+        }
+        else if (val_recv == 0) {
+            graceful_return("peer offline", -3);
+        }
+        else {
+            total_recv += val_recv;
+        }
     }
-    else if (val_recv == 0) {
-        graceful_return("client offline", -3);
-    }
-    
+
     if (!same_string(buffer, STR_4, strlen(STR_4))) {
         graceful_return("not received correct string", -12);
     }
@@ -946,7 +989,7 @@ int ready_to_send(int socketfd, const Options &opt) {
     // return 1 means ready to send
     // return -1: select error
     // return -2: time up
-    // return -3: server offline
+    // return -3: peer offline
     // return -4: not permitted to send
     if (opt.block) {
         return 1;
@@ -971,7 +1014,7 @@ int ready_to_send(int socketfd, const Options &opt) {
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);
 		close(socketfd);
-		graceful_return("server offline", -3);
+		graceful_return("peer offline", -3);
 	}
     else if (FD_ISSET(socketfd, &writefds)){
         FD_ZERO(&writefds);
@@ -1014,7 +1057,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
 }
 
 bool peer_is_disconnected(int socketfd) {
-    
+    sleep(1);
     // if peer is disconnected
     return true;
 }
