@@ -7,7 +7,6 @@ void *get_in_addr(struct sockaddr *sa) {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
     }
-
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
@@ -32,7 +31,7 @@ int get_listener(const Options &opt) {
     setsockopt(listener, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int));
 
     // set nonblocking listener
-    if (opt.block)
+    if (!opt.block) 
         fcntl(listener, F_SETFL, O_NONBLOCK);
 
     // bind
@@ -50,13 +49,12 @@ int get_listener(const Options &opt) {
 int loop_server_fork(int listener, const Options &opt) {
     for (;;) {
         if (opt.block) {
-            int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
-
+            int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
             int fpid = fork();
             switch (fpid) {
                 case 0:
                     // in child
-                    _exit(client_communicate(newfd, opt));
+                    _exit(server_communicate(newfd, opt));
                     break;
                 case -1:
                     // error
@@ -66,6 +64,7 @@ int loop_server_fork(int listener, const Options &opt) {
                     // in parent
                     break;
             }
+        } else {
         }
     }
     return 0;
@@ -78,7 +77,7 @@ int loop_server_nofork(int listener, const Options &opt) {
     int fdmax = listener;          // maximum file descriptor number 
 
     // main loop
-    for(;;) {
+    for (;;) {
         readfds = master; // copy at the last minutes
         writefds = master;
         int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
@@ -544,7 +543,6 @@ int client_nofork(const Options &opt) {
     // close on network failure
     for (int i = 0; i < (int)opt.num; i++) {
         int rv = client_communicate(sockets[i], opt);
-        cout << "DEBUG: rv \t" << rv << endl;
         if (rv < 0) {
             sockets[i--] = create_connection(opt);
             continue;
@@ -553,26 +551,47 @@ int client_nofork(const Options &opt) {
     return 0;
 }
 
-int client_fork(const Options &opt) {
-    // int status;
-    unsigned int i, j;
-    for(i=0; i<opt.num; i++)
-    {
-        pid_t fpid;
-        fpid = fork();
-        if(fpid < 0)
-            graceful("fork", -10);
-        else if(fpid == 0)
+void handler(int sig) {
+    int newfd;
+    switch (sig) {
+        case SIGUSR1:
+            newfd = create_connection(opt);
+            client_communicate(newfd, opt);
+            while(1) sleep(10);
             break;
-        else
-            continue;
+        default:
+            // unknown signal
+            break;
     }
+}
 
-    if(i == opt.num)    //fp
-        for(j=0; j<opt.num; j++)
-            wait();
-    else
-        // creat_connection(opt);
+int client_fork(const Options &opt) {
+    prctl(PR_SET_PDEATHSIG, SIGHUP);
+    signal(SIGUSR1, handler); // register handler to handle failed connections
+
+    for (int i = 0; i < opt.num; i++) {
+        // assume block
+        int fpid = fork();
+        int newfd;
+        switch (fpid) {
+            case 0:
+                // in child
+                prctl(PR_SET_PDEATHSIG, SIGHUP); 
+                newfd = create_connection(opt);
+                if (client_communicate(newfd, opt) < 0) {
+                    kill(getppid(), SIGUSR1);
+                }
+                while(1) sleep(10); // hold pid to avoid log file name collition
+                break;
+            case -1:
+                // error
+                graceful("client_fork", -20);
+                break;
+            default:
+                // in parent
+                break;
+        }
+    }
 
     return 0;
 }
@@ -955,7 +974,7 @@ int client_communicate(int socketfd, const Options &opt) {
         graceful_return("not received correct string", -12);
     }
 
-    close(socketfd);
+    //close(socketfd);
     std::cout << "client begin write file" << std::endl;
     std::stringstream ss_filename;
     ss_filename << h_stuNo << '.' << h_pid << ".pid-c.txt";
@@ -974,13 +993,14 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
 
     struct sockaddr_storage remoteaddr; // client address
     socklen_t addrlen = sizeof(remoteaddr);
+
     int newfd = accept(listener, (sockaddr *) &remoteaddr, &addrlen);
 
     if (newfd == -1) {
         graceful("server_accept_new_client", 7);
     } else {
         // set non-blocking connection
-        if (block) {
+        if (!block) {
             int val = fcntl(newfd, F_GETFL, 0);
             if (val < 0) {
                 close(newfd);
