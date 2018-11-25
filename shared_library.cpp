@@ -495,8 +495,17 @@ int server_communicate(int socketfd, const Options &opt) {
     }
 
     // after server catch that client is closed, close s/c socket, write file
-
-    peer_is_disconnected(socketfd);
+    // check every second
+    while(1) {
+        if (peer_is_disconnected(socketfd)) {
+            std::cout << "peer is disconnected!" << std::endl;
+            close(socketfd);
+            break;
+        }
+        else {
+            sleep(1);
+        }
+    }
 
     std::cout << "server begin write file" << std::endl;
     std::stringstream ss_filename;
@@ -1110,8 +1119,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     }
 }
 
-bool peer_is_disconnected(int socketfd) {
-    
+bool peer_is_disconnected(int socketfd) {  
     char buf[10];
     if(recv(socketfd, buf, 1, MSG_PEEK) == 0)
         return true;
