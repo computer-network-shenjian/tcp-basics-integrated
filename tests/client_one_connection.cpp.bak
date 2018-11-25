@@ -23,7 +23,6 @@ int client_nofork(const Options &opt) {
             continue;
         }
     }
-
     return 0;
 }
 
