@@ -39,7 +39,7 @@
 #define STR_3           "TIME"
 #define STR_4           "end"
 
-#define STU_NO          1652571
+#define STU_NO          1551713
 
 // gracefully perror and exit
 inline void graceful(const char *s, int x) { perror(s); exit(x); }

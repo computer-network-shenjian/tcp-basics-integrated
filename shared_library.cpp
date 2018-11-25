@@ -258,7 +258,7 @@ int server_communicate(int socketfd, const Options &opt) {
 
     std::cout << "server begin write file" << std::endl;
     std::stringstream ss_filename;
-    ss_filename << h_stuNo << '.' << h_pid << ".pid-s.txt";
+    ss_filename << h_stuNo << '.' << h_pid << ".pid.txt";
     std::string str_filename = ss_filename.str();
     if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
@@ -369,6 +369,7 @@ int client_fork(const Options &opt) {
     for (unsigned int i = 0; i < opt.num; i++) {
         // assume block
         int fpid = fork();
+
         int newfd;
         switch (fpid) {
             case 0:
@@ -534,7 +535,7 @@ int client_communicate(int socketfd, const Options &opt) {
     //close(socketfd);
     std::cout << "client begin write file" << std::endl;
     std::stringstream ss_filename;
-    ss_filename << h_stuNo << '.' << h_pid << ".pid-c.txt";
+    ss_filename << h_stuNo << '.' << h_pid << ".pid.txt";
     std::string str_filename = ss_filename.str();
     if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
