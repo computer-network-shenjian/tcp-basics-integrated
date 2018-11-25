@@ -47,6 +47,15 @@ int get_listener(const Options &opt) {
     return listener;
 }
 
+
+// pid_t r_wait(int * stat_loc)
+// {
+//     int revalue;
+//     while(((revalue = wait(&stat_loc)) == -1) && (errno == EINTR));
+//     return revalue;
+// }
+
+
 int loop_server_fork(int listener, const Options &opt) {
     for (;;) {
         if (!opt.block){
@@ -202,7 +211,7 @@ int server_communicate(int socketfd, const Options &opt) {
     std::cout << "server recv " << time_buf << std::endl;
 
     // 7. server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
-
+    srand( (unsigned)time( NULL ) ); 
     int random = rand() % 67232 + 32768;
     std::stringstream ss;
     ss << "str" << random;
@@ -350,7 +359,7 @@ int client_fork(const Options &opt) {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     signal(SIGUSR1, handler); // register handler to handle failed connections
 
-    for (int i = 0; i < opt.num; i++) {
+    for (unsigned int i = 0; i < opt.num; i++) {
         // assume block
         int fpid = fork();
         int newfd;
