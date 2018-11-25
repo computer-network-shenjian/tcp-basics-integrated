@@ -55,6 +55,8 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
     return((x)); }
 */
 
+#define graceful_nonfork(opt) {client_nofork(opt);}
+
 #define minimum(a, b) (a < b ? a : b)
 
 Options opt; // work around for not retransmission from signal

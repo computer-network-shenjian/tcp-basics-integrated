@@ -91,40 +91,60 @@ int loop_server_fork(int listener, const Options &opt) {
 int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
     fd_set master, readfds, writefds;      // master file descriptor list
-    FD_SET(listener, &master);
-    int fdmax = listener;          // maximum file descriptor number 
+    int num_good = 0;
 
-    // main loop
-    for (;;) {
-        readfds = master; // copy at the last minutes
-        writefds = master;
-        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
-        cout << "select returned with value\t" << rv ;
+    while (num_good < 1000) {
+        FD_ZERO(&master);
+        FD_SET(listener, &master);
+        int fdmax = listener;          // maximum file descriptor number 
 
-        switch (rv) {
-            case -1:
-                graceful("select in main loop", 5);
-                break;
-            case 0:
-                graceful("select returned 0\n", 6);
-                break;
-            default:
-                for (int i = 0; i <= fdmax; i++) {
-                    if (FD_ISSET(i, &writefds))  { // we got a writable socket
-                        // because the first message requires the client socket to be writable
-
-                        // handle data
-                        if (server_communicate(i, opt) < 0) {
-                            close(i); FD_CLR(i, &master);
-                        }
-                    } else if (FD_ISSET(i, &readfds) && (i == listener)) { // we got a new client
-                        // handle new connections;
-                        server_accept_client(listener, opt.block, &master, &fdmax);
-                    }
-                }
-                break;
+        int num_remaining = 1000 - num_good; // number of remainings in this iteration
+        for (int i = 0; i < num_remaining; i++) {
+            readfds = master; // copy at the last minutes
+            int rv = select(listener+1, &readfds, NULL, NULL, NULL);
+            switch (rv) {
+                case -1:
+                    graceful("select in main loop", 5);
+                    break;
+                case 0:
+                    graceful("select returned 0\n", 6);
+                    break;
+                default:
+                    server_accept_client(listener, opt.block, &master, &fdmax);
+                    break;
+            }
         }
-    }
+        FD_CLR(listener, &master);
+
+        // main loop
+        while (num_remaining) {
+            readfds = master; // copy at the last minutes
+            writefds = master;
+            int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
+            cout << "select returned with value\t" << rv ;
+
+            switch (rv) {
+                case -1:
+                    graceful("select in main loop", 5);
+                    break;
+                case 0:
+                    graceful("select returned 0\n", 6);
+                    break;
+                default:
+                    for (int i = 0; i <= fdmax; i++) {
+                        if (FD_ISSET(i, &writefds) || FD_ISSET(i, &readfds))  { // we got a writable socket
+                            num_remaining--; // regardless of the result
+                            if (server_communicate(i, opt) < 0) {
+                                close(i); FD_CLR(i, &master);
+                            } else {
+                                num_good++;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
     return 0;
 }
 
@@ -342,25 +362,33 @@ int client_nofork(const Options &opt) {
 }
 
 void handler(int sig) {
-    int newfd;
+   int newfd;
     switch (sig) {
-        case SIGUSR1:
+       case SIGUSR1:
             newfd = create_connection(opt);
-            client_communicate(newfd, opt);
-            while(1) sleep(10);
+           client_communicate(newfd, opt);
+           while(1) sleep(10);
             break;
-        default:
-            // unknown signal
-            break;
-    }
+       default:
+           // unknown signal
+         break;
+   }
 }
 
 int client_fork(const Options &opt) {
+
     prctl(PR_SET_PDEATHSIG, SIGHUP);
     signal(SIGUSR1, handler); // register handler to handle failed connections
-
-    for (unsigned int i = 0; i < opt.num; i++) {
-        // assume block
+    
+    int num_good = 0;
+    int pipe_fd[1000][2];
+    for(int i = 0; i < 1000; i++) {
+        if (pipe(pipe_fd[i]) < 0) {
+            perror("pipeÊ§°Ü");
+            exit(EXIT_FAILURE);
+        }
+    }
+    while (num_good < 1000) {
         int fpid = fork();
         int newfd;
         switch (fpid) {
@@ -369,7 +397,9 @@ int client_fork(const Options &opt) {
                 prctl(PR_SET_PDEATHSIG, SIGHUP); 
                 newfd = create_connection(opt);
                 if (client_communicate(newfd, opt) < 0) {
-                    kill(getppid(), SIGUSR1);
+                    // kill(getppid(), SIGUSR1);
+                } else {
+
                 }
                 while(1) sleep(10); // hold pid to avoid log file name collition
                 break;
@@ -379,6 +409,7 @@ int client_fork(const Options &opt) {
                 break;
             default:
                 // in parent
+                int pipe_fd[2];
                 break;
         }
     }
@@ -521,7 +552,7 @@ int client_communicate(int socketfd, const Options &opt) {
         graceful_return("not received correct string", -12);
     }
 
-    //close(socketfd);
+    close(socketfd);
     std::cout << "client begin write file" << std::endl;
     std::stringstream ss_filename;
     ss_filename << h_stuNo << '.' << h_pid << ".pid-c.txt";
