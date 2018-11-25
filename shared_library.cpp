@@ -48,44 +48,15 @@ int get_listener(const Options &opt) {
 }
 
 int loop_server_fork(int listener, const Options &opt) {
-    // wrong
-    int num_connections = 0;
-
-    if (opt.block) {
-        int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
-
-        int fpid = fork();
-        switch (fpid) {
-            case 0:
-                // in child
-                _exit(client_communicate(newfd, opt));
-                break;
-            case -1:
-                // error
-                graceful("loop_server_fork", -20);
-                break;
-            default:
-                // in parent
-                num_connections++;
-                break;
-        }
-
-    }
-
-    // main loop
     for (;;) {
-        if (num_connections >= (int)opt.num) {
-            // saturated
-            int wstatus = 0;
-            if (wstatus >= 0)
-                num_connections--;
-        } else {
+        if (opt.block) {
             int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
+
             int fpid = fork();
             switch (fpid) {
                 case 0:
                     // in child
-                    client_communicate(newfd, opt);
+                    _exit(client_communicate(newfd, opt));
                     break;
                 case -1:
                     // error
@@ -93,7 +64,6 @@ int loop_server_fork(int listener, const Options &opt) {
                     break;
                 default:
                     // in parent
-                    num_connections++;
                     break;
             }
         }
@@ -123,7 +93,7 @@ int loop_server_nofork(int listener, const Options &opt) {
                 break;
             default:
                 for (int i = 0; i <= fdmax; i++) {
-                    if (!FD_ISSET(i, &readfds) && FD_ISSET(i, &writefds))  { // we got a writable socket
+                    if (FD_ISSET(i, &writefds))  { // we got a writable socket
                         // because the first message requires the client socket to be writable
 
                         // handle data
@@ -144,7 +114,7 @@ int loop_server_nofork(int listener, const Options &opt) {
 int server_communicate(int socketfd, const Options &opt) {
     // return 0: all good
     // return -1: select error
-    // return -2: time up
+    // return -2: time out
     // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
@@ -168,7 +138,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -209,7 +179,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -244,7 +214,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -281,7 +251,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -317,7 +287,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -353,7 +323,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -392,7 +362,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -433,7 +403,7 @@ int server_communicate(int socketfd, const Options &opt) {
                 graceful_return("select", -1);
             }
             else if (val_recv_ready == -2) {
-                graceful_return("time up", -2);
+                graceful_return("time out", -2);
             }
             else if (val_recv_ready == -3) {
                 graceful_return("not permitted to recv", -8);
@@ -468,7 +438,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -564,17 +534,19 @@ int client_nofork(const Options &opt) {
 
     // initialize connections
     //fd_set master;
-    int sockets[opt.num];
-    for (int i = 0; i < opt.num; i++) {
+    int sockets[1000];
+    for (int i = 0; i < (int)opt.num; i++) {
         //FD_SET(create_connection(opt), &master);
         sockets[i] = create_connection(opt);
     }
 
     // exchange data on these connections, creating new connections when these connections
     // close on network failure
-    for (int i = 0; i < opt.num; i++) {
-        if (client_communicate(i, opt) < 0) {
-            sockets[i] = create_connection(opt);
+    for (int i = 0; i < (int)opt.num; i++) {
+        int rv = client_communicate(sockets[i], opt);
+        cout << "DEBUG: rv \t" << rv << endl;
+        if (rv < 0) {
+            sockets[i--] = create_connection(opt);
             continue;
         }
     }
@@ -600,86 +572,16 @@ int client_fork(const Options &opt) {
         for(j=0; j<opt.num; j++)
             wait();
     else
-        creat_connection(opt);
+        // creat_connection(opt);
 
     return 0;
 }
 
-int creat_connection(const Options &opt) {
-    int sockfd;
-    fd_set fds;      
-    int error = -1, slen = sizeof(int);
-
-    struct sockaddr_in   servaddr;
-    memset(&servaddr, 0, sizeof(servaddr));
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_port = htons(stoi(opt.port));
-    if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
-        graceful("Invalid ip address", -1);
-
-    //reconnection flag
-    bool reconn = true;
-    while(reconn)
-    {
-        if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-            graceful("socket", -2);
-
-        if(!opt.block)
-        {
-            //nonblock
-            int flags;
-            flags = fcntl(sockfd, F_GETFL, 0);
-            fcntl(sockfd, F_SETFL, flags | O_NONBLOCK); 
-
-            if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-            {
-                //EINPROGRESS means connection is in progress
-                if(errno != EINPROGRESS)
-                    graceful("connect", -3);
-
-                
-                FD_ZERO(&fds);      
-                FD_SET(sockfd, &fds);       
-                int select_rtn;
-
-                if((select_rtn = select(sockfd+1, NULL, &fds, NULL, NULL)) > 0)
-                {
-                    getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
-                    //error == 0 means connect succeeded
-                    if(error)
-                        graceful("connect", -3);
-                }
-            }
-            //connect succeed   
-        }
-        //block
-        else
-        {
-            if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-                graceful("connect", -3);
-        }
-
-        int error_code = client_communicate(sockfd, opt);
-        if(error_code < 0)
-        {
-            std::cout << "fucked up with fuck code: " << error_code << std::endl;
-            close(sockfd);
-            continue;
-            //break;
-        }
-        /*
-            SO_LINGER check
-        */
-        close(sockfd);
-        reconn = false;
-    }
-    return 0;
-}
 
 int client_communicate(int socketfd, const Options &opt) {
     // return 0: all good
     // return -1: select error
-    // return -2: time up
+    // return -2: time out
     // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
@@ -703,7 +605,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -741,7 +643,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -778,7 +680,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -815,7 +717,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -859,7 +761,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -896,7 +798,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -934,7 +836,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -978,7 +880,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_send_ready == -2) {
-            graceful_return("time up", -2)
+            graceful_return("time out", -2)
         }
         else if (val_send_ready == -3) {
             graceful_return("peer offline", -3);
@@ -1022,7 +924,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("select", -1);
         }
         else if (val_recv_ready == -2) {
-            graceful_return("time up", -2);
+            graceful_return("time out", -2);
         }
         else if (val_recv_ready == -3) {
             graceful_return("not permitted to recv", -8);
@@ -1111,7 +1013,7 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
 int ready_to_send(int socketfd, const Options &opt) {
     // return 1 means ready to send
     // return -1: select error
-    // return -2: time up
+    // return -2: time out
     // return -3: peer offline
     // return -4: not permitted to send
     if (opt.block) {
@@ -1131,7 +1033,7 @@ int ready_to_send(int socketfd, const Options &opt) {
         graceful_return("select", -1);
     }
     else if (val_select == 0) {
-        graceful_return("time up and no change", -2);
+        graceful_return("time out and no change", -2);
     }
 	//else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
         //FD_ZERO(&readfds);
@@ -1151,7 +1053,7 @@ int ready_to_send(int socketfd, const Options &opt) {
 int ready_to_recv(int socketfd, const Options &opt) {
     // return 1 means ready to recv
     // return -1: select error
-    // return -2: time up
+    // return -2: time out
     // return -3: not permitted to recv
     if (opt.block) {
         return 1;
@@ -1168,7 +1070,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
         graceful_return("select", -1);
     }
     else if (val_select == 0) {
-        graceful_return("time up and no change", -2);
+        graceful_return("time out and no change", -2);
     }
     else if (FD_ISSET(socketfd, &readfds)){
         FD_ZERO(&readfds);
@@ -1179,7 +1081,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     }
 }
 
-int peer_is_disconnected(int socketfd) {
+bool peer_is_disconnected(int socketfd) {
     
     char buf[10];
     if(recv(socketfd, buf, 1, MSG_PEEK) == 0)
