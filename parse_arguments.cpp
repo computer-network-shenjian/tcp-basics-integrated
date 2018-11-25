@@ -14,6 +14,11 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
 	
 	if(is_client)
 		opts.num_options = 5;
+
+    //set default server ip 
+    if(!is_client)
+        opts.ip = "0.0.0.0";
+    
 		
     for (int i = 1; i < argc; ++i)
         arguments.push_back(argv[i]);
