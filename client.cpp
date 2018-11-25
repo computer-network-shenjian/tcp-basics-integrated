@@ -231,25 +231,23 @@ int creat_connection(const Options &opt)
 			graceful("connect", -3);
 	}
 
-	if(client_communicate(sockfd, opt) == -1)
-	{
-		/*
-			reconnect!
-		*/
-	}
-	/*
-		SO_LINGER check
-	*/
-	cout<<"client end!"<<endl;
-	close(sockfd);
+        return sockfd;
 }
 
 
 int client_nofork(const Options &opt)
 {
 	error = -1;
-	for(int i=0; i<opt.num; i++)
-		creat_connection(opt);
+	for(int i=0; i<opt.num; i++) {
+            int sockfd = creat_connection(opt);
+            if(client_communicate(sockfd, opt) == -1) i--; // if network failure occurs, ignore this one
+
+            /*
+                    SO_LINGER check
+            */
+            cout<<"client end!"<<endl;
+            close(sockfd);
+        }
 }
 
 
@@ -261,11 +259,12 @@ int client_fork(const Options &opt)
 		pid_t fpid;
 		fpid = fork();
 		if(fpid < 0)
-			graceful("fork", -10);
+                    graceful("fork", -10);
 		else if(fpid == 0)
-			creat_connection(opt);
+                    int sockfd = creat_connection(opt);
+                    if(client_communicate(sockfd, opt) == -1) i--; // if network failure occurs, ignore this one
 		else
-			continue;
+                    continue;
 	}
 	/*
 		handle signal from child proccess
