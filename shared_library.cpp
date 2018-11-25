@@ -48,44 +48,15 @@ int get_listener(const Options &opt) {
 }
 
 int loop_server_fork(int listener, const Options &opt) {
-    // wrong
-    int num_connections = 0;
-
-    if (opt.block) {
-        int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
-
-        int fpid = fork();
-        switch (fpid) {
-            case 0:
-                // in child
-                _exit(client_communicate(newfd, opt));
-                break;
-            case -1:
-                // error
-                graceful("loop_server_fork", -20);
-                break;
-            default:
-                // in parent
-                num_connections++;
-                break;
-        }
-
-    }
-
-    // main loop
     for (;;) {
-        if (num_connections >= (int)opt.num) {
-            // saturated
-            int wstatus = 0;
-            if (wstatus >= 0)
-                num_connections--;
-        } else {
+        if (opt.block) {
             int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
+
             int fpid = fork();
             switch (fpid) {
                 case 0:
                     // in child
-                    client_communicate(newfd, opt);
+                    _exit(client_communicate(newfd, opt));
                     break;
                 case -1:
                     // error
@@ -93,7 +64,6 @@ int loop_server_fork(int listener, const Options &opt) {
                     break;
                 default:
                     // in parent
-                    num_connections++;
                     break;
             }
         }
@@ -1111,7 +1081,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     }
 }
 
-int peer_is_disconnected(int socketfd) {
+bool peer_is_disconnected(int socketfd) {
     
     char buf[10];
     if(recv(socketfd, buf, 1, MSG_PEEK) == 0)
