@@ -144,6 +144,7 @@ int server_communicate(int socketfd, const Options &opt) {
     std::string str;
     // server send a string "StuNo"
     val_send_ready = ready_to_send(socketfd, opt);
+    
     if (val_send_ready < 0) {
         if (val_send_ready == -1) {
             graceful_return("select", -1);
@@ -161,7 +162,9 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("ready_to_send", -5);
         }
     }
+
     str = STR_1;
+
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
     if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
@@ -174,6 +177,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "server send " << str.c_str() << std::endl;
 
     int val_recv_ready, val_recv, total_recv;
     char buffer[BUFFER_LEN] = {0};
@@ -213,6 +217,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     memcpy(&n_stuNo, buffer, sizeof(uint32_t));
     h_stuNo = ntohl(n_stuNo);
+    std::cout << "server recv " << h_stuNo << std::endl;
 
     // server send a string "pid"
     val_send_ready = ready_to_send(socketfd, opt);
@@ -246,6 +251,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "server send " << str.c_str() << std::endl;
 
     // server recv an int as client's pid, network byte order
     uint32_t h_pid = 0;
@@ -284,6 +290,8 @@ int server_communicate(int socketfd, const Options &opt) {
     memcpy(&n_pid, buffer, sizeof(uint32_t));
     h_pid = ntohl(n_pid);
 
+    std::cout << "server recv " << h_pid << std::endl;
+
     // server send a string "TIME"
     val_send_ready = ready_to_send(socketfd, opt);
     if (val_send_ready < 0) {
@@ -305,7 +313,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     str = STR_3;
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
-    if (val_send != (int)str.length()) {
+    if (val_send != (int)str.length()+1) {
         if (errno == EPIPE) {
             graceful_return("peer offline", -3);
         }
@@ -316,6 +324,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "server send " << str.c_str() << std::endl;
 
     // server recv client's time as a string with a fixed length of 19 bytes
     char time_buf[20] = {0};
@@ -356,6 +365,7 @@ int server_communicate(int socketfd, const Options &opt) {
     else {
         memcpy(time_buf, buffer, 19);
     }
+    std::cout << "server recv " << time_buf << std::endl;
 
     // server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
     val_send_ready = ready_to_send(socketfd, opt);
@@ -381,7 +391,7 @@ int server_communicate(int socketfd, const Options &opt) {
     ss << "str" << random << '\0';
     str = ss.str();
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
-    if (val_send != (int)str.length()) {
+    if (val_send != (int)str.length()+1) {
         if (errno == EPIPE) {
             graceful_return("peer offline", -3);
         }
@@ -392,6 +402,7 @@ int server_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "server send " << str.c_str() << std::endl;
     // server recv a random string with length *****, and each character is in ASCII 0~255.
     unsigned char client_string[BUFFER_LEN] = {0};
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
@@ -558,10 +569,13 @@ int creat_connection(const Options &opt) {
                 graceful("connect", -3);
         }
 
-        if(client_communicate(sockfd, opt) == -1)
+        int error_code = client_communicate(sockfd, opt);
+        if(error_code < 0)
         {
+            std::cout << "fucked up with fuck code: " << error_code << std::endl;
             close(sockfd);
-                continue;
+            //continue;
+            break;
         }
         /*
             SO_LINGER check
@@ -624,6 +638,7 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, STR_1, strlen(STR_1))) {
         graceful_return("not received correct string", -12);
     }
@@ -664,6 +679,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "client send " << h_stuNo << std::endl;
 
     // recv "pid" from server
     val_recv_ready = ready_to_recv(socketfd, opt);
@@ -697,6 +713,7 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, STR_2, strlen(STR_2))) {
         graceful_return("not received correct string", -12);
     }
@@ -728,6 +745,7 @@ int client_communicate(int socketfd, const Options &opt) {
         n_pid = htonl((uint32_t)pid); 
     else            //if nofork, send: pid<<16 + socket_id
         n_pid = htonl((uint32_t)((((int)pid)<<16)+socketfd));
+    int h_pid = ntohl(n_pid);
     
     memcpy(buffer, &n_pid, sizeof(uint32_t));
     val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
@@ -742,6 +760,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "client send " << h_pid << std::endl;
 
     // recv "TIME" from server
     val_recv_ready = ready_to_recv(socketfd, opt);
@@ -775,6 +794,7 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, STR_3, strlen(STR_3))) {
         graceful_return("not received correct string", -12);
     }
@@ -815,6 +835,7 @@ int client_communicate(int socketfd, const Options &opt) {
             graceful_return("message sent is of wrong quantity of byte", -7);
         }
     }
+    std::cout << "client send " << buffer << std::endl;
 
     // recv "str*****" from server and parse
     val_recv_ready = ready_to_recv(socketfd, opt);
@@ -833,6 +854,7 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "begin" << std::endl;
     memset(buffer, 0, sizeof(char) * BUFFER_LEN);
     total_recv = 0;
     while (total_recv < 8) {
@@ -847,7 +869,9 @@ int client_communicate(int socketfd, const Options &opt) {
             total_recv += val_recv;
         }
     }
+    std::cout << "end" << std::endl;
 
+    std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, "str", 3)) {
         graceful_return("not received correct string", -12);
     }
@@ -931,12 +955,13 @@ int client_communicate(int socketfd, const Options &opt) {
         }
     }
 
+    std::cout << "client recv " << buffer << std::endl;
     if (!same_string(buffer, STR_4, strlen(STR_4))) {
         graceful_return("not received correct string", -12);
     }
     
     close(socketfd);
-    if (write_file(h_stuNo, pid, time_buf, client_string) == -1) {
+    if (write_file(h_stuNo, h_pid, time_buf, client_string) == -1) {
         graceful_return("write_file", -11);
     }
 
@@ -1002,7 +1027,7 @@ int ready_to_send(int socketfd, const Options &opt) {
     FD_SET(socketfd, &writefds);
     tv.tv_sec = WAIT_TIME_S;
     tv.tv_usec = WAIT_TIME_US;
-
+    errno = 0;
     int val_select = select(socketfd+1, &readfds, &writefds, NULL, &tv);
     if (val_select < 0) {
         graceful_return("select", -1);
@@ -1010,12 +1035,14 @@ int ready_to_send(int socketfd, const Options &opt) {
     else if (val_select == 0) {
         graceful_return("time up and no change", -2);
     }
+/*
 	else if (FD_ISSET(socketfd, &readfds) && FD_ISSET(socketfd, &writefds)) {
         FD_ZERO(&readfds);
         FD_ZERO(&writefds);
 		close(socketfd);
 		graceful_return("peer offline", -3);
 	}
+*/
     else if (FD_ISSET(socketfd, &writefds)){
         FD_ZERO(&writefds);
         return 1;
@@ -1039,7 +1066,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     FD_SET(socketfd, &readfds);
     tv.tv_sec = WAIT_TIME_S;
     tv.tv_usec = WAIT_TIME_US;
-
+    errno = 0;
     int val_select = select(socketfd+1, &readfds, NULL, NULL, &tv);
     if (val_select < 0) {
         graceful_return("select", -1);
@@ -1112,7 +1139,8 @@ bool same_string(const char *str1, const char *str2, const int cmp_len) {
     memcpy(cmp_2, str2, cmp_len);
     cmp_1[cmp_len] = '\0';
     cmp_2[cmp_len] = '\0';
-    if(!strcmp(cmp_1, cmp_2)) {
+    //std::cout << "cmp_1: " << cmp_1 << ", cmp_2: " << cmp_2 << ", strcmp: " << strcmp(cmp_1, cmp_2) << std::endl;
+    if(strcmp(cmp_1, cmp_2) != 0) {
         return false;	//unexpected data        
     }
     else {

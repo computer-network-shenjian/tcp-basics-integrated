@@ -30,8 +30,9 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
                             // debug: don't check for number of connections and
                             // let the select handle max connections
                             if (opt.block == false) { // must be taken with no fork
-                                server_accept_client(listener, opt.block, &master, &fdmax);
+                                int newfd = server_accept_client(listener, opt.block, &master, &fdmax);
                                 num_connections++;
+                                server_communicate(newfd, opt);
                             }
                             //if (opt.num - num_connections > 0) {
                             //    server_accept_client(listener, opt.block, &master, &fdmax);
@@ -41,8 +42,6 @@ int loop_server_nofork_2000_connections(int listener, const Options &opt) {
                             // handle data
                             // debug: don't close connection
                             cout << "\nconnection\t" << num_connections << endl;
-                            
-                            
                             
                             if (false) {
                                 num_connections--;
