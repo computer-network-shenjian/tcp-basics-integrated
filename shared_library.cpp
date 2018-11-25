@@ -42,7 +42,7 @@ int get_listener(const Options &opt) {
     std::cout << "Listening on port " << listen_port << " on all interfaces...\n";
 
     // set listening
-    listen(listener,50);
+    listen(listener, 1000);
 
     return listener;
 }
@@ -50,12 +50,37 @@ int get_listener(const Options &opt) {
 int loop_server_fork(int listener, const Options &opt) {
     int num_connections = 0;
 
+    if (opt.block) {
+        int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
+
+        int fpid = fork();
+        switch (fpid) {
+            case 0:
+                // in child
+                _exit(client_communicate(newfd, opt));
+                break;
+            case -1:
+                // error
+                graceful("loop_server_fork", -20);
+                break;
+            default:
+                // in parent
+                int wstatus = 0;
+                wait(&wstatus);
+                num_connections++;
+                break;
+        }
+
+    }
+
     // main loop
     for (;;) {
         if (num_connections >= (int)opt.num) {
             // saturated
-            wait();
-            num_connections--;
+            int wstatus = 0;
+            wait(&wstatus);
+            if (wstatus >= 0)
+                num_connections--;
         } else {
             int newfd = server_accept_client(listener, false, (fd_set*)NULL, (int*)NULL);
             int fpid = fork();
@@ -80,15 +105,15 @@ int loop_server_fork(int listener, const Options &opt) {
 
 int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
-    fd_set master, readfds;      // master file descriptor list
+    fd_set master, readfds, writefds;      // master file descriptor list
     FD_SET(listener, &master);
-    int fdmax = listener;          // maximum file descriptor number
+    int fdmax = listener;          // maximum file descriptor number 
 
     // main loop
-    int num_connections = 0;
     for(;;) {
         readfds = master; // copy at the last minutes
-        int rv = select(fdmax+1, &readfds, NULL, NULL, NULL);
+        writefds = master;
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
         cout << "select returned with value\t" << rv ;
 
         switch (rv) {
@@ -100,21 +125,16 @@ int loop_server_nofork(int listener, const Options &opt) {
                 break;
             default:
                 for (int i = 0; i <= fdmax; i++) {
-                    if (FD_ISSET(i, &readfds)) { // we got one
-                        FD_CLR(i, &readfds);
-                        if (i == listener) {
-                            // handle new connections;
-                            if (opt.num - num_connections > 0) {
-                                server_accept_client(listener, opt.block, &master, &fdmax);
-                                num_connections++;
-                            }
-                        } else {
-                            // handle data
-                            if (server_communicate(i, opt) == -1) {
-                                num_connections--;
-                                close(i); FD_CLR(i, &master);
-                            }
+                    if (!FD_ISSET(i, &readfds) && FD_ISSET(i, &writefds))  { // we got a writable socket
+                        // because the first message requires the client socket to be writable
+
+                        // handle data
+                        if (server_communicate(i, opt) < 0) {
+                            close(i); FD_CLR(i, &master);
                         }
+                    } else if (FD_ISSET(i, &readfds) && (i == listener)) { // we got a new client
+                        // handle new connections;
+                        server_accept_client(listener, opt.block, &master, &fdmax);
                     }
                 }
                 break;
@@ -494,8 +514,26 @@ int server_communicate(int socketfd, const Options &opt) {
 }
 
 int client_nofork(const Options &opt) {
-    for(unsigned int i=0; i<opt.num; i++)
-        creat_connection(opt);
+    // initialize opt.num many connections and add them to the master set.
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+
+    // initialize connections
+    //fd_set master;
+    int sockets[opt.num];
+    for (int i = 0; i < opt.num; i++) {
+        //FD_SET(create_connection(opt), &master);
+        sockets[i] = create_connection(opt);
+    }
+
+    // exchange data on these connections, creating new connections when these connections
+    // close on network failure
+    for (int i = 0; i < opt.num; i++) {
+        if (client_communicate(i, opt) < 0) {
+            sockets[i] = create_connection(opt);
+            continue;
+        }
+    }
     return 0;
 }
 
