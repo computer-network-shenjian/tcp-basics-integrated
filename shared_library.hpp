@@ -1,24 +1,35 @@
-#include <arpa/inet.h>
+#include <chrono>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <thread>
+
+#include <errno.h>
+#include <fcntl.h>
 #include <ifaddrs.h>
 #include <netdb.h>
-#include "parse_arguments.hpp"
-#include <fcntl.h>  // setting non-blocking socket option
-#include <iostream>
-#include <unistd.h> // read
-#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <cstdlib>
-#include <string>
-#include <sstream>
-#include <iostream>
-#include <fstream>
 #include <time.h>
+#include <unistd.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+#include "parse_arguments.hpp"
 
 #define MAX_SENDLEN     32768
 #define MAX_RECVLEN     32768
 #define BUFFER_LEN      100000
 #define WAIT_TIME_S     1           // 1 s
 #define WAIT_TIME_US    500000      // 0.5 s
+#define MAX_CONN        1000        // no more than 1000 connections is allowed
 
 #define STR_1           "StuNo"
 #define STR_2           "pid"
@@ -28,7 +39,7 @@
 #define STU_NO          1652571
 
 // gracefully perror and exit
-inline void graceful(char *s, int x) { perror(s); exit(x); }
+inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 // gracefully perror and return
 #define graceful_return(s, x) {\
@@ -80,7 +91,7 @@ int server_communicate(int socketfd, const Options &opt);
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -102,7 +113,7 @@ int client_communicate(int socketfd, const Options &opt);
     // return 0: all good
     // return -1: select error
     // return -2: time up
-    // return -3: client offline
+    // return -3: peer offline
     // return -4: not permitted to send
     // return -5: ready_to_send error
     // return -6: send error
@@ -113,23 +124,20 @@ int client_communicate(int socketfd, const Options &opt);
     // return -11: write_file error
     // return -12: not received correct string
 
-
 // client specific
 int client_nofork(const Options &opt);
-// must be non-blocking 
+    // must be non-blocking 
 int client_fork(const Options &opt);
-// can be either blocking or non-blocking
+    // can be either blocking or non-blocking
 
 int creat_connection(const Options &opt);
     //reconnect implemented, only return after correctly communicating with server 
-
-
 
 int ready_to_send(int socketfd, const Options &opt);
     // return 1 means ready to send
     // return -1: select error
     // return -2: time up
-    // return -3: server offline
+    // return -3: peer offline
     // return -4: not permitted to send
 
 int ready_to_recv(int socketfd, const Options &opt);
@@ -141,10 +149,10 @@ int ready_to_recv(int socketfd, const Options &opt);
 bool peer_is_disconnected(int socketfd);
     // check if peer is disconnected
 
-int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string);
+int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string);
     // write file as designated
 
-int getCurrentTime(char *time_str);
+int str_current_time(char *time_str);
     // format: yyyy-mm-dd hh:mm:ss, 19 bytes
 
 int create_random_str(const int length, unsigned char *random_string);
