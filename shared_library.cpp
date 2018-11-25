@@ -607,7 +607,6 @@ int client_fork(const Options &opt) {
     return 0;
 }
 
-
 int client_communicate(int socketfd, const Options &opt) {
     // return 0: all good
     // return -1: select error
@@ -1111,7 +1110,7 @@ int ready_to_recv(int socketfd, const Options &opt) {
     }
 }
 
-int peer_is_disconnected(int socketfd) {
+bool peer_is_disconnected(int socketfd) {
     
     char buf[10];
     if(recv(socketfd, buf, 1, MSG_PEEK) == 0)
