@@ -1,18 +1,28 @@
-#include <arpa/inet.h>
+#include <chrono>
+#include <cstdlib>
+#include <fstream>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <thread>
+
+#include <errno.h>
+#include <fcntl.h>
 #include <ifaddrs.h>
 #include <netdb.h>
-#include "parse_arguments.hpp"
-#include <fcntl.h>  // setting non-blocking socket option
-#include <iostream>
-#include <unistd.h> // read
-#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
-#include <cstdlib>
-#include <string>
-#include <sstream>
-#include <iostream>
-#include <fstream>
 #include <time.h>
+#include <unistd.h>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+
+#include "parse_arguments.hpp"
 
 #define MAX_SENDLEN     32768
 #define MAX_RECVLEN     32768
@@ -28,7 +38,7 @@
 #define STU_NO          1652571
 
 // gracefully perror and exit
-inline void graceful(char *s, int x) { perror(s); exit(x); }
+inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 // gracefully perror and return
 #define graceful_return(s, x) {\
@@ -116,9 +126,9 @@ int client_communicate(int socketfd, const Options &opt);
 
 // client specific
 int client_nofork(const Options &opt);
-// must be non-blocking 
+    // must be non-blocking 
 int client_fork(const Options &opt);
-// can be either blocking or non-blocking
+    // can be either blocking or non-blocking
 
 int creat_connection(const Options &opt);
     //reconnect implemented, only return after correctly communicating with server 
@@ -144,7 +154,7 @@ bool peer_is_disconnected(int socketfd);
 int write_file(int stuNo, int pid, const char *time_str, const unsigned char *client_string);
     // write file as designated
 
-int getCurrentTime(char *time_str);
+int str_current_time(char *time_str);
     // format: yyyy-mm-dd hh:mm:ss, 19 bytes
 
 int create_random_str(const int length, unsigned char *random_string);

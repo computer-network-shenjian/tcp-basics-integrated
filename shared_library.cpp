@@ -12,13 +12,13 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 int server_bind_port(int listener, int listen_port) {
-    sockaddr_in listen_addr {};
+    struct sockaddr_in listen_addr;
+    memset(&listen_addr, 0, sizeof(listen_addr));
     listen_addr.sin_family = AF_INET;
     listen_addr.sin_port = htons(listen_port);
     listen_addr.sin_addr.s_addr = INADDR_ANY;
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
-
 
 int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
@@ -47,13 +47,12 @@ int get_listener(const Options &opt) {
     return listener;
 }
 
-
 int loop_server_fork(int listener, const Options &opt) {
     int num_connections = 0;
 
     // main loop
     for (;;) {
-        if (num_connections >= opt.num) {
+        if (num_connections >= (int)opt.num) {
             // saturated
             wait();
             num_connections--;
@@ -68,6 +67,7 @@ int loop_server_fork(int listener, const Options &opt) {
             }
         }
     }
+    return 0;
 }
 
 int loop_server_nofork(int listener, const Options &opt) {
@@ -112,6 +112,7 @@ int loop_server_nofork(int listener, const Options &opt) {
                 break;
         }
     }
+    return 0;
 }
 
 int server_communicate(int socketfd, const Options &opt) {
@@ -154,7 +155,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     str = STR_1;
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
-    if (val_send != str.length()) {
+    if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
         }
@@ -222,7 +223,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     str = STR_2;
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
-    if (val_send != str.length()) {
+    if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
         }
@@ -288,7 +289,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     str = STR_3;
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
-    if (val_send != str.length()) {
+    if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
         }
@@ -358,7 +359,7 @@ int server_communicate(int socketfd, const Options &opt) {
     ss << "str" << random << '\0';
     str = ss.str();
     val_send = send(socketfd, str.c_str(), str.length()+1, MSG_NOSIGNAL);
-    if (val_send != str.length()) {
+    if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
         }
@@ -428,7 +429,7 @@ int server_communicate(int socketfd, const Options &opt) {
     }
     str = STR_4;
     val_send = send(socketfd, str.c_str(), str.length(), MSG_NOSIGNAL);
-    if (val_send != str.length()) {
+    if (val_send != (int)str.length()) {
         if (errno == EPIPE) {
             graceful_return("client offline", -3);
         }
@@ -451,17 +452,14 @@ int server_communicate(int socketfd, const Options &opt) {
     return 0;
 }
 
-
-
-int client_nofork(const Options &opt)
-{
+int client_nofork(const Options &opt) {
     for(unsigned int i=0; i<opt.num; i++)
         creat_connection(opt);
+    return 0;
 }
 
-int client_fork(const Options &opt)
-{
-    int status;
+int client_fork(const Options &opt) {
+    // int status;
     unsigned int i, j;
     for(i=0; i<opt.num; i++)
     {
@@ -484,8 +482,7 @@ int client_fork(const Options &opt)
     return 0;
 }
 
-int creat_connection(const Options &opt)
-{
+int creat_connection(const Options &opt) {
     int sockfd;
     fd_set fds;      
     int error = -1, slen = sizeof(int);
@@ -498,10 +495,10 @@ int creat_connection(const Options &opt)
         graceful("Invalid ip address", -1);
 
     //reconnection flag
-    int reconn = true;
+    bool reconn = true;
     while(reconn)
     {
-        if((sockfd == socket(AF_INET, SOCK_STREAM, 0)) < 0)
+        if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
             graceful("socket", -2);
 
         if(!opt.block)
@@ -696,7 +693,7 @@ int client_communicate(int socketfd, const Options &opt) {
     if(opt.fork)
         n_pid = htonl((uint32_t)pid); 
     else            //if nofork, send: pid<<16 + socket_id
-        n_pid = htonl((uint32_t)( ((int)pid)<<16 + socketfd ));
+        n_pid = htonl((uint32_t)((((int)pid)<<16)+socketfd));
     
     memcpy(buffer, &n_pid, sizeof(uint32_t));
     val_send = send(socketfd, buffer, sizeof(uint32_t), MSG_NOSIGNAL);
@@ -763,7 +760,7 @@ int client_communicate(int socketfd, const Options &opt) {
     }
 
     char time_buf[20] = {0};
-    getCurrentTime(time_buf);
+    str_current_time(time_buf);
     
     strncpy(buffer, time_buf, 19);
     val_send = send(socketfd, buffer, 19, MSG_NOSIGNAL);
@@ -895,8 +892,6 @@ int client_communicate(int socketfd, const Options &opt) {
     // return 0 as success
     return 0;
 }
-
-
 
 int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
     // Accept connections from listener and insert them to the fd_set.
@@ -1035,7 +1030,7 @@ int write_file(int stuNo, int pid, const char *time_str, const unsigned char *cl
     return 0;
 }
 
-int getCurrentTime(char *time_str) {
+int str_current_time(char *time_str) {
     timespec time;
 	clock_gettime(CLOCK_REALTIME, &time); 
 	tm nowTime;
