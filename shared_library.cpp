@@ -92,17 +92,21 @@ int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
     fd_set master, readfds, writefds;      // master file descriptor list
     int num_good = 0;
+    int queue_cnt = 0;
 
     while (num_good < 1000) {
         FD_ZERO(&master);
         FD_SET(listener, &master);
         int fdmax = listener;          // maximum file descriptor number 
 
-        int num_remaining = 1000 - num_good; // number of remainings in this iteration
-        for (int i = 0; i < num_remaining; i++) {
+      //  int num_remaining = 1000 - num_good; // number of remainings in this iteration
+     //   for (int i = 0; i < num_remaining; i++) {
+        if(queue_cnt < 100)
+        {
             readfds = master; // copy at the last minutes
             int rv = select(listener+1, &readfds, NULL, NULL, NULL);
-            switch (rv) {
+            switch (rv)
+             {
                 case -1:
                     graceful("select in main loop", 5);
                     break;
@@ -111,40 +115,40 @@ int loop_server_nofork(int listener, const Options &opt) {
                     break;
                 default:
                     server_accept_client(listener, opt.block, &master, &fdmax);
+                    queue_cnt ++;
                     break;
             }
         }
+          //  }
         FD_CLR(listener, &master);
-
         // main loop
-        while (num_remaining) {
-            readfds = master; // copy at the last minutes
-            writefds = master;
-            int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
-            cout << "select returned with value\t" << rv ;
+        readfds = master; // copy at the last minutes
+        writefds = master;
+        //int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
+        cout << "select returned with value\t" << rv ;
 
-            switch (rv) {
-                case -1:
-                    graceful("select in main loop", 5);
-                    break;
-                case 0:
-                    graceful("select returned 0\n", 6);
-                    break;
-                default:
-                    for (int i = 0; i <= fdmax; i++) {
-                        if (FD_ISSET(i, &writefds) || FD_ISSET(i, &readfds))  { // we got a writable socket
-                            num_remaining--; // regardless of the result
-                            if (server_communicate(i, opt) < 0) {
-                                close(i); FD_CLR(i, &master);
-                            } else {
-                                num_good++;
-                            }
-                        }
+        switch (rv) {
+            case -1:
+                graceful("select in main loop", 5);
+                break;
+            case 0:
+                graceful("select returned 0\n", 6);
+                break;
+            default:
+                for (int i = 0; i <= fdmax; i++) {
+                    if (FD_ISSET(i, &writefds) || FD_ISSET(i, &readfds))  { // we got a writable socket
+                       // num_remaining--; // regardless of the result
+                        if (server_communicate(i, opt) < 0) {
+                            close(i); FD_CLR(i, &master);
+                        } else 
+                            num_good++;
+                            queue_cnt--;
                     }
-                    break;
                 }
-            }
+                break;
         }
+    }
     return 0;
 }
 
@@ -401,7 +405,7 @@ int client_fork(const Options &opt) {
                     kill(getppid(), SIGUSR1);
                 }
                // while(1) sleep(10); // hold pid to avoid log file name collition
-                sleep(1);
+             //   sleep(1);
                // printf("test\n");
                 return 0;
             case -1:
