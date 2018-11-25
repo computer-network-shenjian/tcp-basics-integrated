@@ -163,3 +163,7 @@ bool same_string(const char *str1, const char *str2, const int cmp_len);
 
 int parse_str(const char *str);
     // parse "str*****" into a 5-digit number
+
+int send_thing(const int socketfd, const char *str, const Options &opt, const int send_len);
+
+int recv_thing(const int socketfd, char *buffer, const Options &opt, const int recv_len);
