@@ -19,6 +19,11 @@ int server_bind_port(int listener, int listen_port) {
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
 
+//function:
+//      socket, bind, listen
+//      and set block/nonblock, SO_REUSEADDR, listener queue length
+//return:
+//      listener (socketfd)
 int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
 
@@ -56,37 +61,7 @@ int get_listener(const Options &opt) {
 // }
 
 
-int loop_server_fork(int listener, const Options &opt) {
-    for (;;) {
-        if (!opt.block){
-            fd_set readfds;
-            FD_ZERO(&readfds);
-            FD_SET(listener, &readfds);
-            int rv = select(listener+1, &readfds, NULL, NULL, NULL);
-
-            if(rv == -1){
-                graceful("loop_server_fork", -20);
-            }
-        }
-
-        int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
-        int fpid = fork();
-        switch (fpid) {
-            case 0:
-                // in child
-                _exit(server_communicate(newfd, opt));
-                break;
-            case -1:
-                // error
-                graceful("loop_server_fork", -20);
-                break;
-            default:
-                // in parent
-                break;
-        }
-    }
-    return 0;
-}
+// 
 
 int loop_server_nofork(int listener, const Options &opt) {
     // prepare variables used by select()
@@ -838,4 +813,218 @@ int recv_thing(const int socketfd, char *buffer, const Options &opt, const int r
         graceful_return("not received exact designated quantity of bytes", -10);
     }
     return 0;       // all good
+}
+
+/********************************************/
+/*                 yxd                      */
+/********************************************/
+//function:
+//      wait() child process if and only if receive SIGCHLD
+//return value:
+//      0   no exit child
+//      1   found exit child
+int check_child()
+{   
+    pid_t pid;   
+    //set option=WNOHANG to avoid blocking in waitpid()
+    //waitpid would return immediately if no exit child 
+    if((pid = waitpid(-1, NULL, WNOHANG)) == -1)
+        graceful("check_SIGCHLD waitpid", -1);
+
+    //no exit child
+    else if(pid == 0)   
+        return 0;
+
+    //found exit child
+    else if(pid > 0)
+        return 1;
+}
+
+// There is no need to maintain a socket_q in fork mode;
+// all that server needs to do is:
+//       maintaining less than 200 child process(implemented in check_child())
+// And in every child, if connection failed, close(socketfd) and exit(0);
+//       otherwise, exit(0) directlly;
+
+int loop_server_fork(int listener, const Options &opt)
+{
+    //create SIGCHID handler
+//  signal(SIGCHLD, sigchld_handler);
+
+    Socket newfd;
+    pid_t pid;
+    //curnum: current children process num
+    int MAX_NUM = 200, curnum = 0;
+    int rtr;    //return value
+
+    while(1)    //server won't end naturally 
+    {
+        //curnum-1 when no child exit
+        if((rtr = check_child()) == 1)
+            curnum --;
+
+        if(curnum <= MAX_NUM)
+        {
+            if(!opt.block)  //nonblock
+            {
+                fd_set readfds;
+                FD_ZERO(&readfds);
+                FD_SET(listener, &readfds);
+                if((rtr = select(listener + 1, &readfds, NULL, NULL, NULL)) == -1)
+                    graceful("loop_server_fork select", -20);
+            }
+
+            newfd.socketfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
+            newfd.stage = 0;
+            
+            pid = fork();
+            if(pid == -1)
+                graceful("loop_server_fork fork", -20);
+            
+            else if(pid == 0)   //child 
+            {
+                //close error sockfd
+                /*
+                    need to replace with new server_communicate_fork()
+                */
+                if(server_communicate_fork(newfd, opt) < 0)
+                    close(newfd.socketfd);
+            
+                exit(0); //exit directlly with no error
+            }
+            else    //father
+                curnum ++;
+        }
+        //else, wait until socket_q.size() < MAX_NUM
+        else    
+            continue;
+    }
+}
+
+
+//server in fork mode, does not need a fd_set
+int server_communicate_fork(Socket connfd, const Options &opt) {
+    // return 0: all good
+    // return -1: select error
+    // return -2: time out
+    // return -3: peer offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
+
+    // debug
+    std::cout << "server_communicate" << std::endl;
+
+    int val_send_thing;
+    std::string str;
+    char buffer[BUFFER_LEN] = {0};
+    int var_recv_thing;
+    
+    // 1. server send a string "StuNo"
+    val_send_thing = send_thing(connfd.socketfd, STR_1, opt, strlen(STR_1));
+    if (val_send_thing < 0) 
+        return val_send_thing;
+    
+    std::cout << "server send " << STR_1 << std::endl;
+
+    // 2. server recv an int as student number, network byte order
+    uint32_t h_stuNo = 0;
+    uint32_t n_stuNo = 0;
+
+    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, (int)sizeof(uint32_t));
+    if (var_recv_thing < 0) 
+        return var_recv_thing;
+    
+    memcpy(&n_stuNo, buffer, sizeof(uint32_t));
+    h_stuNo = ntohl(n_stuNo);
+    std::cout << "server recv " << h_stuNo << std::endl;
+
+    // 3. server send a string "pid"
+    val_send_thing = send_thing(connfd.socketfd, STR_2, opt, strlen(STR_2));
+    if (val_send_thing < 0) 
+        return val_send_thing;
+    
+    std::cout << "server send " << STR_2 << std::endl;
+
+    // 4. server recv an int as client's pid, network byte order
+    uint32_t h_pid = 0;
+    uint32_t n_pid = 0;
+
+    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, (int)sizeof(uint32_t));
+    if (var_recv_thing < 0) 
+        return var_recv_thing;
+    
+
+    memcpy(&n_pid, buffer, sizeof(uint32_t));
+    h_pid = ntohl(n_pid);
+
+    std::cout << "server recv " << h_pid << std::endl;
+
+    // 5. server send a string "TIME"
+    val_send_thing = send_thing(connfd.socketfd, STR_3, opt, strlen(STR_3)+1);
+    if (val_send_thing < 0) 
+        return val_send_thing;
+    
+    std::cout << "server send " << STR_3 << std::endl;
+
+    // 6. server recv client's time as a string with a fixed length of 19 bytes
+    char time_buf[20] = {0};
+
+    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, 19);
+    if (var_recv_thing < 0) {
+        return var_recv_thing;
+    }
+    else {
+        memcpy(time_buf, buffer, 19);
+    }
+    std::cout << "server recv " << time_buf << std::endl;
+
+    // 7. server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
+    srand( (unsigned)time( NULL ) ); 
+    int random = rand() % 67232 + 32768;
+    std::stringstream ss;
+    ss << "str" << random;
+    str = ss.str();
+    val_send_thing = send_thing(connfd.socketfd, str.c_str(), opt, str.length()+1);
+
+    if (val_send_thing < 0) 
+        return val_send_thing;
+
+    std::cout << "server send " << str << std::endl;
+
+    // 8. server recv a random string with length *****, and each character is in ASCII 0~255.
+    unsigned char client_string[BUFFER_LEN] = {0};
+    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
+    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, random);
+    if (var_recv_thing < 0) 
+        return var_recv_thing;
+    
+    memcpy(client_string, buffer, random);
+    std::cout << "server recv ok" << std::endl;
+
+    // 9. server send a string "end"
+    val_send_thing = send_thing(connfd.socketfd, STR_4, opt, strlen(STR_4));
+    if (val_send_thing < 0) 
+        return val_send_thing;
+    
+    std::cout << "server send " << STR_4 << std::endl;
+
+
+
+    std::cout << "server begin write file" << std::endl;
+    std::stringstream ss_filename;
+    ss_filename << h_stuNo << '.' << h_pid << ".pid.txt";
+    std::string str_filename = ss_filename.str();
+    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
+        graceful_return("write_file", -11);
+    }
+    std::cout << "server end write file" << std::endl;
+
+    // return 0 as success
+    return 0;
 }

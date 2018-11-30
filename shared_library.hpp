@@ -25,6 +25,8 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
+#include <queue>
+
 #include "parse_arguments.hpp"
 
 #define MAX_SENDLEN     32768
@@ -62,6 +64,12 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 Options opt; // work around for not retransmission from signal
 
+struct Socket
+{
+    int socketfd;
+    int stage;  //stage start from 0
+};
+
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
 
@@ -77,7 +85,7 @@ int get_listener(const Options &opt);
     // Precondition: the port field and block field of opt is properly set
     // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
 
-int loop_server_fork(int listener, const Options &opt);
+//int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
 
@@ -174,3 +182,17 @@ int parse_str(const char *str);
 int send_thing(const int socketfd, const char *str, const Options &opt, const int send_len);
 
 int recv_thing(const int socketfd, char *buffer, const Options &opt, const int recv_len);
+
+
+
+/********************************************/
+/*                 yxd                      */
+/********************************************/
+int check_child();     
+//function:
+//      wait() child process if and only if receive SIGCHLD
+
+int loop_server_fork(int listener, const Options &opt);
+
+int server_communicate_fork(Socket connfd, const Options &opt);
+
