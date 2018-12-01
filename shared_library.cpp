@@ -854,7 +854,7 @@ int loop_server_fork(int listener, const Options &opt)
     Socket newfd;
     pid_t pid;
     //curnum: current children process num
-    int MAX_NUM = 200, curnum = 0;
+    int curnum = 0;
     int rtr;    //return value
 
     while(1)    //server won't end naturally 
@@ -863,7 +863,7 @@ int loop_server_fork(int listener, const Options &opt)
         if((rtr = check_child()) == 1)
             curnum --;
 
-        if(curnum <= MAX_NUM)
+        if(curnum <= max_active_connections)
         {
             if(!opt.block)  //nonblock
             {
