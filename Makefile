@@ -30,3 +30,4 @@ RM := rm -f
 clean :
 	$(RM) $(TARGET_SERVER) $(TARGET_CLIENT)
 	$(RM) $(OBJ_LIB) $(TARGET_LIB)
+	$(RM) server_txt/* client_txt/*
