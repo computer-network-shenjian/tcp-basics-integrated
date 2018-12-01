@@ -28,8 +28,6 @@
 #include <sys/prctl.h>
 #include <sys/wait.h>
 
-#include <queue>
-
 #include "parse_arguments.hpp"
 
 const int max_sendlen = 32768;
@@ -104,12 +102,6 @@ int remove_dead_connections(fd_set &master, const int fdmax, const int listener,
 // precondition: master is a set of sockets the connections to be removed from
 //      listener is the 
 
-struct Socket
-{
-    int socketfd;
-    int stage;  //stage start from 0
-};
-
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
 
@@ -125,7 +117,12 @@ int get_listener(const Options &opt);
     // Precondition: the port field and block field of opt is properly set
     // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
 
-//int loop_server_fork(int listener, const Options &opt);
+int check_child();     
+//function:
+//      wait() child process if and only if receive SIGCHLD
+
+
+int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
 
@@ -229,15 +226,4 @@ int recv_thing_new(Socket &socket, char *buffer, const int recv_len);
     // return -3: peer offline
     // return -10: not received exact designated quantity of bytes
 
-
-/********************************************/
-/*                 yxd                      */
-/********************************************/
-int check_child();     
-//function:
-//      wait() child process if and only if receive SIGCHLD
-
-int loop_server_fork(int listener, const Options &opt);
-
-int server_communicate_fork(Socket connfd, const Options &opt);
-
+//int server_write_file(Socket socket);

@@ -19,7 +19,6 @@ int server_bind_port(int listener, int listen_port) {
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
 
-
 void fill_up_sets(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
     // fill up the sets from the queue
     while (!socket_q.empty() && set_data_socket.size() < max_active_connections) {
@@ -34,7 +33,6 @@ void fill_up_sets(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queu
             fdmax = socketfd;
     }
 }
-
 
 
 int get_listener(const Options &opt) {
@@ -74,7 +72,6 @@ int get_listener(const Options &opt) {
 // }
 
 
-
 void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
     for (auto s: set_data_socket) {
         if (!s.has_been_active) {
@@ -88,7 +85,6 @@ template <class T>
 typename T::iterator find_socketfd(int socketfd, T collection) {
     return find_if(collection.begin(), collection.end(), [=] (const Socket &s) { return s.socketfd == socketfd; });
 }
-
 
 void loop_server_nofork(int listener, const Options &opt) {
     queue<Socket> socket_q;
@@ -1135,4 +1131,3 @@ int server_communicate_fork(Socket connfd, const Options &opt) {
     // return 0 as success
     return 0;
 }
-
