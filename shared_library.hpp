@@ -30,19 +30,25 @@
 
 #include "parse_arguments.hpp"
 
-#define MAX_SENDLEN     32768
-#define MAX_RECVLEN     32768
-#define BUFFER_LEN      100000
-#define WAIT_TIME_S     10           // 10 s
-#define WAIT_TIME_US    500000      // 0.5 s
-#define MAX_CONN        1000        // no more than 1000 connections is allowed
+const int max_sendlen = 32768;
+const int max_recvlen = 32768;
+const int buffer_len = 100000;
+const int time_str_length = 20;
+const int wait_time_s = 1;
+const int wait_time_us = 500000;
+const int max_conn = 1000;
 
 #define STR_1           "StuNo"
 #define STR_2           "pid"
 #define STR_3           "TIME"
 #define STR_4           "end"
 
-#define STU_NO          1551713
+const int stu_no = 1551713;
+
+// gracefully perror and return
+#define stage_done(socket) {\
+    (socket).stage++;\
+    return(1); }
 
 // gracefully perror and exit
 inline void graceful(const char *s, int x) { perror(s); exit(x); }
@@ -67,16 +73,23 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 class Socket {
     public:
-        Socket(int socketfd, bool is_server) 
-        : socketfd(socketfd), stage_send(is_server)
+        Socket(int socketfd) 
+        : socketfd(socketfd)
         {
         }
 
         int socketfd;
-        bool stage_send; // if is server, the first stage should be send
         bool has_been_active = false;
-        int stage = 0;
+        int stage = 1;
         int bytes_processed = 0;
+
+        int stuNo = 0;
+        int pid = 0;
+        int random = 0;
+        char time_str[time_str_length] = {0};
+        unsigned char client_string[buffer_len] = {0};
+        //char client_string[buffer_len] = {0};
+
         bool operator< (const Socket &s) const { return socketfd < s.socketfd; }
 };
 
@@ -113,51 +126,6 @@ void loop_server_nofork(int listener, const Options &opt);
 
 int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, std::set<Socket> *set_data_socket, std::queue<Socket> *socket_q);
 
-
-int server_communicate(int socketfd, const Options &opt);
-    // exchange messages with client according to the protocol
-    // Precondition: a connection is already established on socketfd
-    // Postcondition: a sequence of messages are exchanged with the client,
-    // abording connection if network error is encountered.
-
-    // not implemented
-    // remember to handle partial sends here
-    // return 0: all good
-    // return -1: select error
-    // return -2: time up
-    // return -3: peer offline
-    // return -4: not permitted to send
-    // return -5: ready_to_send error
-    // return -6: send error
-    // return -7: message sent is of wrong quantity of byte
-    // return -8: not permitted to recv
-    // return -9: ready_to_recv error
-    // return -10: not received exact designated quantity of bytes
-    // return -11: write_file error
-
-
-int client_communicate(int socketfd, const Options &opt);
-    // exchange messages with server according to the protocol
-    // Precondition: a connection is already established on socketfd
-    // Postcondition: a sequence of messages are exchanged with the server,
-    // abording connection if network error is encountered.
-
-    // not implemented
-    // remember to handle partial sends here
-    // return 0: all good
-    // return -1: select error
-    // return -2: time up
-    // return -3: peer offline
-    // return -4: not permitted to send
-    // return -5: ready_to_send error
-    // return -6: send error
-    // return -7: message sent is of wrong quantity of byte
-    // return -8: not permitted to recv
-    // return -9: ready_to_recv error
-    // return -10: not received exact designated quantity of bytes
-    // return -11: write_file error
-    // return -12: not received correct string
-
 // client specific
 int client_nofork(const Options &opt);
     // must be non-blocking 
@@ -166,22 +134,6 @@ int client_fork(const Options &opt);
 
 int creat_connection(const Options &opt);
     //reconnect implemented, only return after correctly communicating with server 
-
-int ready_to_send(int socketfd, const Options &opt);
-    // return 1 means ready to send
-    // return -1: select error
-    // return -2: time up
-    // return -3: peer offline
-    // return -4: not permitted to send
-
-int ready_to_recv(int socketfd, const Options &opt);
-    // return 1 means ready to recv
-    // return -1: select error
-    // return -2: time up
-    // return -3: not permitted to recv
-
-bool peer_is_disconnected(int socketfd);
-    // check if peer is disconnected
 
 int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string);
     // write file as designated
@@ -198,6 +150,75 @@ bool same_string(const char *str1, const char *str2, const int cmp_len);
 int parse_str(const char *str);
     // parse "str*****" into a 5-digit number
 
-int send_thing(const int socketfd, const char *str, const Options &opt, const int send_len);
+int server_communicate_new(Socket &socket);
+// function: 
+//      1. error handling: directly close socket
+//      2. good result: don't close socket
+// precondition: Socket socket, after readability/writability check
+// postcondition: result code
+    // remember to handle partial sends here
+    // return 1: stage done
+    // return 0: no error
+    // return -1: select error
+    // return -2: time up
+    // return -3: peer offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
+    // return -12: not received correct string
+    // return -13: stage number beyond index
 
-int recv_thing(const int socketfd, char *buffer, const Options &opt, const int recv_len);
+int client_communicate_new(Socket &socket);
+// function: 
+//      1. error handling: directly close socket
+//      2. good result: don't close socket
+// precondition: Socket socket, after readability/writability check
+// postcondition: result code
+    // remember to handle partial sends here
+    // return 1: stage done
+    // return 0: no error
+    // return -1: select error
+    // return -2: time up
+    // return -3: peer offline
+    // return -4: not permitted to send
+    // return -5: ready_to_send error
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+    // return -8: not permitted to recv
+    // return -9: ready_to_recv error
+    // return -10: not received exact designated quantity of bytes
+    // return -11: write_file error
+    // return -12: not received correct string
+    // return -13: stage number beyond index
+
+int send_thing_new(Socket &socket, const char *str, const int send_len);
+// function: 
+//      1. send things in str, with length send_len.
+//      2. if all bytes are processed, clear socket.bytes_processed, and return 1
+// precondition: Socket socket, after readability/writability check
+// postcondition: result code
+    // remember to handle partial sends here
+    // return 1: all bytes processed
+    // return 0: no error, but not all bytes processed
+    // return -3: peer offline
+    // return -6: send error
+    // return -7: message sent is of wrong quantity of byte
+
+int recv_thing_new(Socket &socket, char *buffer, const int recv_len);
+// function: 
+//      1. recv things to buffer, with length recv_len.
+//      2. if all bytes are processed, clear socket.bytes_processed, and return 1
+// precondition: Socket socket, after readability/writability check
+// postcondition: result code
+    // remember to handle partial sends here
+    // return 1: all bytes processed
+    // return 0: no error, but not all bytes processed
+    // return -3: peer offline
+    // return -10: not received exact designated quantity of bytes
+
+//int server_write_file(Socket socket);
