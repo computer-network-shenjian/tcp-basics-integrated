@@ -88,68 +88,77 @@ int loop_server_fork(int listener, const Options &opt) {
     return 0;
 }
 
-int loop_server_nofork(int listener, const Options &opt) {
-    // prepare variables used by select()
-    fd_set master, readfds, writefds;      // master file descriptor list
-    int num_good = 0;
-    int queue_cnt = 0;
-
-    while (num_good < 1000) {
-        FD_ZERO(&master);
-        FD_SET(listener, &master);
-        int fdmax = listener;          // maximum file descriptor number 
-
-      //  int num_remaining = 1000 - num_good; // number of remainings in this iteration
-     //   for (int i = 0; i < num_remaining; i++) {
-        if(queue_cnt < 100)
-        {
-            readfds = master; // copy at the last minutes
-            int rv = select(listener+1, &readfds, NULL, NULL, NULL);
-            switch (rv)
-             {
-                case -1:
-                    graceful("select in main loop", 5);
-                    break;
-                case 0:
-                    graceful("select returned 0\n", 6);
-                    break;
-                default:
-                    server_accept_client(listener, opt.block, &master, &fdmax);
-                    queue_cnt ++;
-                    break;
-            }
+int remove_dead_connections(fd_set &master, const int fdmax, const int listener, const int* const active_connections) {
+    int num_removed = 0;
+    for (int i = 0; i < fdmax; i++) {
+        if (active_connections[i] && FD_ISSET(i, master) && i != listener) {
+            FD_CLR(i, &master);
+            num_removed++;
         }
-          //  }
-        FD_CLR(listener, &master);
-        // main loop
+    }
+    return num_removed;
+}
+
+template <class T>
+T::iterator find_socketfd(int socketfd, T collection) {
+    return find_if(collection.begin(), collection.end(), [=] (auto s) { return s.socketfd == socketfd };
+}
+
+int loop_server_nofork(int listener, const Options &opt) {
+    queue<Socket> socket_q;
+    set<Socket> set_data_socket;
+
+    fd_set master, readfds, writefds;      // master file descriptor listt
+    FD_ZERO(&master);
+    FD_SET(listener, &master);
+    int fdmax = listener;          // maximum file descriptor number 
+    struct timeval tv {timeout_seconds, microseconds}; // set a 2 second client timeout
+
+    for (;;) {
         readfds = master; // copy at the last minutes
-        writefds = master;
-        //int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
-        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
-        cout << "select returned with value\t" << rv ;
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, &tv);
 
         switch (rv) {
             case -1:
                 graceful("select in main loop", 5);
                 break;
             case 0:
-                graceful("select returned 0\n", 6);
+                // timeout, remove sockets that haven't responded in a interval, exept for listener
+                remove_dead_connections(&master, fdmax, listener, active_connections, &set_data_socket);
+                tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
                 break;
             default:
-                for (int i = 0; i <= fdmax; i++) {
-                    if (FD_ISSET(i, &writefds) || FD_ISSET(i, &readfds))  { // we got a writable socket
-                       // num_remaining--; // regardless of the result
+                for (Socket socket: set_data_socket) {
+                    int i = socket.socketfd;
+                    if (FD_ISSET(i, &readfds) && i == listener) { // we got a new connection
+                        server_accept_client(listener, opt.block, &master, &fdmax, &set_data_socket, &socket_q);
+
+                        // TODO: check if this possible workaround works
+                        tv = {timeout_seconds, timeout_microseconds}; // should the timer be reset?
+                    } else if (FD_ISSET(i, &read_fds))  { // we got a readable socket
                         if (server_communicate(i, opt) < 0) {
-                            close(i); FD_CLR(i, &master);
-                        } else 
-                            num_good++;
-                            queue_cnt--;
+                            // only close socket if error is encountered
+                            close(i); 
+                            // remove from sets
+                            FD_CLR(i, &master);
+                            set_data_socket.erase(find_socketfd(i, set_data_socket););
+                        }
+                    } else if (FD_ISSET(i, &write_fds)) { // we got a writable socket
+                        // now I'm pasting code...
+                        if (server_communicate(i, opt) < 0) {
+                            // only close socket if error is encountered
+                            close(i); 
+                            // remove from sets
+                            FD_CLR(i, &master);
+                            set_data_socket.erase(find_socketfd(i, set_data_socket););
+                        }
                     }
                 }
                 break;
         }
+
     }
-    return 0;
+
 }
 
 int server_communicate(int socketfd, const Options &opt) {
@@ -571,8 +580,12 @@ int client_communicate(int socketfd, const Options &opt) {
     return 0;
 }
 
-int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
-    // Accept connections from listener and insert them to the fd_set.
+int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, set<Socket> *set_data_socket, queue<Socket> *socket_q) {
+    // Accept connections from listener.
+    // For select()ing, new socketfds are inserted into the socket queue, 
+    // then fill up the sets from the queue if the set size is 
+    // less than max_active_connections.
+    // For non-select()ing, the new socketfd is returned directely.
 
     struct sockaddr_storage remoteaddr; // client address
     socklen_t addrlen = sizeof(remoteaddr);
@@ -595,11 +608,21 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
             }            
         }
 
-        if (master != NULL && fdmax != NULL) { // if using select
-            // add to the set
-            FD_SET(newfd, master); // add to master set
-            if (newfd > *fdmax)      // keep track of the max
-                *fdmax = newfd;
+        if (master != NULL && fdmax != NULL && set_data_socket != NULL && socket_q != NULL) { // if using select
+            (*socket_q).emplace(newfd);
+
+            // fill up the sets from the queue
+            while (!(*socket_q).empty() && (*set_data_socket).size() < max_active_connections) {
+                // pop a new socket from the queue
+                int socketfd = (*socket_q).front();
+                (*socket_q).pop();
+
+                // insert it to the sets
+                FD_SET(socketfd, master); // add to master set
+                (*set_data_socket).emplace(socketfd);
+                if (socketfd > *fdmax)      // keep track of the max
+                    *fdmax = socketfd;
+            }
         }
 
 
@@ -610,7 +633,6 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
                 << " on socket " << newfd << std::endl;
     }
     return newfd;
-
 }
 
 int ready_to_send(int socketfd, const Options &opt) {

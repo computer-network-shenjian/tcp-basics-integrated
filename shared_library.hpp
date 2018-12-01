@@ -64,10 +64,22 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 //Options opt; // work around for not retransmission from signal
 
 struct Socket {
-    int socketfd;
-    bool has_been_active = false;
-    int stage = 0;
 };
+
+class Socket {
+    public:
+        Socket(int socket_fd, bool is_server) 
+        : socket_fd(socket_fd), stage_send(is_server)
+        {
+        }
+
+        int socketfd;
+        bool stage_send; // if is server, the first stage should be send
+        bool has_been_active = false;
+        int stage = 0;
+        int bytes_processed = 0;
+}
+
 const int max_active_connections = 200;
 
 const int timeout_seconds = 2;
