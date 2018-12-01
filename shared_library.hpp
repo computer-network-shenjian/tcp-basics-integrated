@@ -5,6 +5,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <queue>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -60,7 +61,21 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 #define minimum(a, b) (a < b ? a : b)
 
-Options opt; // work around for not retransmission from signal
+//Options opt; // work around for not retransmission from signal
+
+struct Socket {
+    int socketfd;
+    bool has_been_active = false;
+    int stage = 0;
+};
+const int max_active_connections = 200;
+
+const int timeout_seconds = 2;
+const int timeout_microseconds = 0;
+int remove_dead_connections(fd_set &master, const int fdmax, const int listener, const int* const active_connections);
+// remove connections that has been unresponsive in a certain period of time
+// precondition: master is a set of sockets the connections to be removed from
+//      listener is the 
 
 // shared functions
 void *get_in_addr(struct sockaddr *sa);
