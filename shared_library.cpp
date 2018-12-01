@@ -94,7 +94,7 @@ void loop_server_nofork(int listener, const Options &opt) {
     FD_ZERO(&master);
     FD_SET(listener, &master);
     int fdmax = listener; // maximum file descriptor number 
-    struct timeval tv {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
+    timeval tv {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
 
     for (;;) {
         readfds = master; // copy at the last minutes
@@ -106,28 +106,26 @@ void loop_server_nofork(int listener, const Options &opt) {
                 graceful("select in main loop", 5);
                 break;
             case 0:
-                // timeout, remove sockets that haven't responded in a interval, exept for listener
+                // timeout, close sockets that haven't responded in an interval, exept for listener
                 remove_dead_connections(master, fdmax, set_data_socket, socket_q, true);
                 tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
                 break;
             default:
-                for (Socket socket: set_data_socket) {
+                for (const Socket &socket: set_data_socket) {
                     int i = socket.socketfd;
                     if (FD_ISSET(i, &readfds) && i == listener) { // we got a new connection
                         server_accept_client(listener, opt.block, &master, &fdmax, &set_data_socket, &socket_q);
 
                         // TODO: check if this possible workaround works
                         tv = {timeout_seconds, timeout_microseconds}; // should the timer be reset?
-                    } else if (FD_ISSET(i, &writefds) && FD_ISSET(i, &readfds))  { // we got a readable socket
+                    } else if (FD_ISSET(i, &writefds) || FD_ISSET(i, &readfds))  { // we got a readable or writable socket
                         if (server_communicate(i, opt) < 0) {
-                            // only close socket if error is encountered
+                            // only close socket if an error is encountered
                             close(i); 
-                            // remove from the sets
+                            // remove the socket from the sets
                             FD_CLR(i, &master);
                             set_data_socket.erase(find_socketfd(i, set_data_socket));
                             fill_up_sets(master, fdmax, set_data_socket, socket_q, true);
-                        } else {
-
                         }
                     }
                 }

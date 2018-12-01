@@ -77,8 +77,8 @@ class Socket {
         bool has_been_active = false;
         int stage = 0;
         int bytes_processed = 0;
+        bool operator< (const Socket &s) const { return socketfd < s.socketfd; }
 };
-bool operator< (const Socket &s) const { return socketfd < s.socketfd; }
 
 const int max_active_connections = 200;
 
@@ -104,7 +104,7 @@ int get_listener(const Options &opt);
     // Precondition: the port field and block field of opt is properly set
     // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
 
-int loop_server_fork(int listener, const Options &opt);
+//int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
 
