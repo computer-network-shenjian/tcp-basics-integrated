@@ -19,6 +19,22 @@ int server_bind_port(int listener, int listen_port) {
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
 
+void fill_up_sets(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
+    // fill up the sets from the queue
+    while (socket_q.empty() && set_data_socket.size() < max_active_connections) {
+        // pop a new socket from the queue
+        int socketfd = socket_q.front().socketfd;
+        socket_q.pop();
+
+        // insert it to the sets
+        FD_SET(socketfd, &master); // add to master set
+        set_data_socket.emplace(socketfd, is_server);
+        if (socketfd > fdmax)      // keep track of the max
+            fdmax = socketfd;
+    }
+}
+
+
 int get_listener(const Options &opt) {
     int listen_port = stoi(opt.port);
 
@@ -56,66 +72,33 @@ int get_listener(const Options &opt) {
 // }
 
 
-int loop_server_fork(int listener, const Options &opt) {
-    for (;;) {
-        if (!opt.block){
-            fd_set readfds;
-            FD_ZERO(&readfds);
-            FD_SET(listener, &readfds);
-            int rv = select(listener+1, &readfds, NULL, NULL, NULL);
-
-            if(rv == -1){
-                graceful("loop_server_fork", -20);
-            }
-        }
-
-        int newfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
-        int fpid = fork();
-        switch (fpid) {
-            case 0:
-                // in child
-                _exit(server_communicate(newfd, opt));
-                break;
-            case -1:
-                // error
-                graceful("loop_server_fork", -20);
-                break;
-            default:
-                // in parent
-                break;
+void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
+    for (auto s: set_data_socket) {
+        if (!s.has_been_active) {
+            FD_CLR(s.socketfd, &master);
         }
     }
-    return 0;
-}
-
-int remove_dead_connections(fd_set &master, const int fdmax, const int listener, const int* const active_connections) {
-    int num_removed = 0;
-    for (int i = 0; i < fdmax; i++) {
-        if (active_connections[i] && FD_ISSET(i, master) && i != listener) {
-            FD_CLR(i, &master);
-            num_removed++;
-        }
-    }
-    return num_removed;
+    fill_up_sets(master, fdmax, set_data_socket, socket_q, is_server);
 }
 
 template <class T>
-T::iterator find_socketfd(int socketfd, T collection) {
-    return find_if(collection.begin(), collection.end(), [=] (auto s) { return s.socketfd == socketfd };
+typename T::iterator find_socketfd(int socketfd, T collection) {
+    return find_if(collection.begin(), collection.end(), [=] (const Socket &s) { return s.socketfd == socketfd; });
 }
 
-int loop_server_nofork(int listener, const Options &opt) {
+void loop_server_nofork(int listener, const Options &opt) {
     queue<Socket> socket_q;
     set<Socket> set_data_socket;
 
-    fd_set master, readfds, writefds;      // master file descriptor listt
+    fd_set master, readfds, writefds;      // master file descriptor list
     FD_ZERO(&master);
     FD_SET(listener, &master);
-    int fdmax = listener;          // maximum file descriptor number 
-    struct timeval tv {timeout_seconds, microseconds}; // set a 2 second client timeout
+    int fdmax = listener; // maximum file descriptor number 
+    struct timeval tv {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
 
     for (;;) {
         readfds = master; // copy at the last minutes
+        writefds = master; // copy at the last minutes
         int rv = select(fdmax+1, &readfds, &writefds, NULL, &tv);
 
         switch (rv) {
@@ -124,7 +107,7 @@ int loop_server_nofork(int listener, const Options &opt) {
                 break;
             case 0:
                 // timeout, remove sockets that haven't responded in a interval, exept for listener
-                remove_dead_connections(&master, fdmax, listener, active_connections, &set_data_socket);
+                remove_dead_connections(master, fdmax, set_data_socket, socket_q, true);
                 tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
                 break;
             default:
@@ -135,22 +118,16 @@ int loop_server_nofork(int listener, const Options &opt) {
 
                         // TODO: check if this possible workaround works
                         tv = {timeout_seconds, timeout_microseconds}; // should the timer be reset?
-                    } else if (FD_ISSET(i, &read_fds))  { // we got a readable socket
+                    } else if (FD_ISSET(i, &writefds) && FD_ISSET(i, &readfds))  { // we got a readable socket
                         if (server_communicate(i, opt) < 0) {
                             // only close socket if error is encountered
                             close(i); 
-                            // remove from sets
+                            // remove from the sets
                             FD_CLR(i, &master);
-                            set_data_socket.erase(find_socketfd(i, set_data_socket););
-                        }
-                    } else if (FD_ISSET(i, &write_fds)) { // we got a writable socket
-                        // now I'm pasting code...
-                        if (server_communicate(i, opt) < 0) {
-                            // only close socket if error is encountered
-                            close(i); 
-                            // remove from sets
-                            FD_CLR(i, &master);
-                            set_data_socket.erase(find_socketfd(i, set_data_socket););
+                            set_data_socket.erase(find_socketfd(i, set_data_socket));
+                            fill_up_sets(master, fdmax, set_data_socket, socket_q, true);
+                        } else {
+
                         }
                     }
                 }
@@ -374,19 +351,19 @@ int client_nofork(const Options &opt) {
     return 0;
 }
 
-void handler(int sig) {
-   int newfd;
-    switch (sig) {
-       case SIGUSR1:
-            newfd = create_connection(opt);
-           client_communicate(newfd, opt);
-           while(1) sleep(10);
-            break;
-       default:
-           // unknown signal
-         break;
-   }
-}
+//void handler(int sig) {
+//   int newfd;
+//    switch (sig) {
+//       case SIGUSR1:
+//           newfd = create_connection(opt);
+//           client_communicate(newfd, opt);
+//           while(1) sleep(10);
+//           break;
+//       default:
+//           // unknown signal
+//         break;
+//   }
+//}
 
 
 pid_t r_wait(int * stat_loc)
@@ -398,7 +375,7 @@ pid_t r_wait(int * stat_loc)
 
 int client_fork(const Options &opt) {
     prctl(PR_SET_PDEATHSIG, SIGHUP);
-    signal(SIGUSR1, handler); // register handler to handle failed connections
+    //signal(SIGUSR1, handler); // register handler to handle failed connections
 
     for (unsigned int i = 0; i < opt.num; i++) {
         // assume block
@@ -609,22 +586,9 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, s
         }
 
         if (master != NULL && fdmax != NULL && set_data_socket != NULL && socket_q != NULL) { // if using select
-            (*socket_q).emplace(newfd);
-
-            // fill up the sets from the queue
-            while (!(*socket_q).empty() && (*set_data_socket).size() < max_active_connections) {
-                // pop a new socket from the queue
-                int socketfd = (*socket_q).front();
-                (*socket_q).pop();
-
-                // insert it to the sets
-                FD_SET(socketfd, master); // add to master set
-                (*set_data_socket).emplace(socketfd);
-                if (socketfd > *fdmax)      // keep track of the max
-                    *fdmax = socketfd;
-            }
+            (*socket_q).emplace(newfd, true);
+            fill_up_sets(*master, *fdmax, *set_data_socket, *socket_q, true);
         }
-
 
         char remoteIP[INET6_ADDRSTRLEN];
         std::cout << "New connection from " << inet_ntop(remoteaddr.ss_family,
@@ -684,11 +648,11 @@ int ready_to_recv(int socketfd, const Options &opt) {
         return 1;
     }
     fd_set readfds;
-    struct timeval tv;
+    //struct timeval tv;
     FD_ZERO(&readfds);
     FD_SET(socketfd, &readfds);
-    tv.tv_sec = WAIT_TIME_S;
-    tv.tv_usec = WAIT_TIME_US;
+    //tv.tv_sec = WAIT_TIME_S;
+    //tv.tv_usec = WAIT_TIME_US;
     errno = 0;
     //int val_select = select(socketfd+1, &readfds, NULL, NULL, &tv);
     int val_select = select(socketfd+1, &readfds, NULL, NULL, NULL);

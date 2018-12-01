@@ -6,6 +6,8 @@
 #include <string>
 #include <thread>
 #include <queue>
+#include <set>
+#include <algorithm>
 
 #include <errno.h>
 #include <fcntl.h>
@@ -63,13 +65,10 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
 
 //Options opt; // work around for not retransmission from signal
 
-struct Socket {
-};
-
 class Socket {
     public:
-        Socket(int socket_fd, bool is_server) 
-        : socket_fd(socket_fd), stage_send(is_server)
+        Socket(int socketfd, bool is_server) 
+        : socketfd(socketfd), stage_send(is_server)
         {
         }
 
@@ -78,7 +77,8 @@ class Socket {
         bool has_been_active = false;
         int stage = 0;
         int bytes_processed = 0;
-}
+};
+bool operator< (const Socket &s) const { return socketfd < s.socketfd; }
 
 const int max_active_connections = 200;
 
@@ -108,10 +108,10 @@ int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
 
-int loop_server_nofork(int listener, const Options &opt);
+void loop_server_nofork(int listener, const Options &opt);
     // must be non-blocking otherwise simultaneous connections can't be handled
 
-int server_accept_client(int listener, bool block, fd_set *master, int *fdmax);
+int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, std::set<Socket> *set_data_socket, std::queue<Socket> *socket_q);
 
 
 int server_communicate(int socketfd, const Options &opt);
