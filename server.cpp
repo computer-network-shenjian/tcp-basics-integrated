@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
 
     // socket(), set blocking/nonblocking, bind(), listen()
     int listener = get_listener(opt);
-
+/*
     int keepalive = 1;      // enable keepalive 
     int keepidle = 1;       // if no data coming in 1 second, start detecting...
     int keepinterval = 1;   // detecting interval: 1 second
@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
     setsockopt(listener, SOL_TCP, TCP_KEEPIDLE, (void*)&keepidle , sizeof(keepidle ));
     setsockopt(listener, SOL_TCP, TCP_KEEPINTVL, (void *)&keepinterval , sizeof(keepinterval ));
     setsockopt(listener, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount , sizeof(keepcount ));
-
+*/
     if (opt.fork)
         //loop_server_fork(listener, opt);
         ;

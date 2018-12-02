@@ -140,7 +140,7 @@ int client_fork(const Options &opt);
 int creat_connection(const Options &opt);
     //reconnect implemented, only return after correctly communicating with server 
 
-int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string);
+int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string, const int random);
     // write file as designated
 
 int str_current_time(char *time_str);
@@ -178,7 +178,7 @@ int server_communicate_new(Socket &socket);
     // return -12: not received correct string
     // return -13: stage number beyond index
 
-int client_communicate_new(Socket &socket);
+int client_communicate_new(Socket &socket, const Options &opt);
 // function: 
 //      1. error handling: directly close socket
 //      2. good result: don't close socket
@@ -226,4 +226,4 @@ int recv_thing_new(Socket &socket, char *buffer, const int recv_len);
     // return -3: peer offline
     // return -10: not received exact designated quantity of bytes
 
-//int server_write_file(Socket socket);
+int write_file_new(const char *str_filename, Socket &socket);

@@ -102,8 +102,8 @@ void loop_server_nofork(int listener, const Options &opt) {
         readfds = master; // copy at the last minutes
         writefds = master; // copy at the last minutes
         FD_CLR(listener, &writefds); // avoid selecting writable listener
-        int rv = select(fdmax+1, &readfds, &writefds, NULL, &tv);
-
+        int rv = select(fdmax+1, &readfds, &writefds, NULL, NULL);
+        cout << "DEBUG: rv\t" << rv << endl;
         switch (rv) {
             case -1:
                 graceful("select in main loop", 5);
@@ -478,12 +478,12 @@ int client_communicate(int socketfd, const Options &opt) {
         graceful_return("not received correct string", -12);
     }
 
-    close(socketfd);
+    //close(socketfd);
     std::cout << "client begin write file" << std::endl;
     std::stringstream ss_filename;
-    ss_filename << h_stuNo << '.' << h_pid << ".pid.txt";
+    ss_filename << "./client_txt/" << h_stuNo << '.' << h_pid << ".pid.txt";
     std::string str_filename = ss_filename.str();
-    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
+    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string, rand_length) == -1) {
         graceful_return("write_file", -11);
     }
     std::cout << "client end write file" << std::endl;
@@ -536,7 +536,7 @@ int client_nofork(const Options &opt) {
 pid_t r_wait(int * stat_loc)
 {
     int revalue;
-    while(((revalue = wait(stat_loc)) == -1) && (errno == EINTR));//如果等待的过程中被一个不可阻塞的信号终断则继续循环等待
+    while(((revalue = wait(stat_loc)) == -1) && (errno == EINTR));
     return revalue;
 }
 
@@ -619,18 +619,21 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, s
     return newfd;
 }
 
-int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string) {
+int write_file(const char *str_filename, int stuNo, int pid, const char *time_str, const unsigned char *client_string, const int random) {
     // return 0: all good
     // return -1: file open error
     std::ofstream myfile;
-    myfile.open(str_filename, std::ios::out|std::ios::trunc);
+    myfile.open(str_filename, std::ofstream::binary|std::ios::out|std::ios::trunc);
     if (!myfile.is_open()) {
         graceful_return("file open", -1);
     }
     myfile << stuNo << '\n';
     myfile << pid << '\n';
     myfile << time_str << '\n';
-    myfile << client_string << '\n';
+    //myfile << client_string << '\n';
+    char buffer[buffer_len] = {0};
+    memcpy(buffer, client_string, random);
+    myfile.write(buffer, sizeof(char)*random);
     myfile.close();
     return 0;
 }
@@ -705,18 +708,17 @@ int server_communicate_new(Socket &socket) {
         }
         // 2. server recv an int as student number, network byte order
         case 2: {
-            //uint32_t h_stuNo = 0;
+            int last_bytes_processed = socket.bytes_processed;
             uint32_t n_stuNo = 0;
-            char buffer[buffer_len] = {0};
-            int val_recv_thing = recv_thing_new(socket, buffer, (int)sizeof(uint32_t));
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, (int)sizeof(uint32_t));
             if (val_recv_thing < 0) {
                 return(val_recv_thing);
             }
-            else if (val_recv_thing != 1) {
+            memcpy(&n_stuNo+last_bytes_processed, buffer_in, sizeof(uint32_t)-last_bytes_processed);
+            if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            memcpy(&n_stuNo, buffer, sizeof(uint32_t));
-            //h_stuNo = ntohl(n_stuNo);
             socket.stuNo = ntohl(n_stuNo);
             std::cout << "server recv: " << socket.stuNo << std::endl;
             stage_done(socket);
@@ -735,18 +737,17 @@ int server_communicate_new(Socket &socket) {
         }
         // 4. server recv an int as client's pid, network byte order
         case 4: {
-            //uint32_t h_pid = 0;
+            int last_bytes_processed = socket.bytes_processed;
             uint32_t n_pid = 0;
-            char buffer[buffer_len] = {0};
-            int val_recv_thing = recv_thing_new(socket, buffer, (int)sizeof(uint32_t));
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, (int)sizeof(uint32_t));
             if (val_recv_thing < 0) {
                 return(val_recv_thing);
             }
-            else if (val_recv_thing != 1) {
+            memcpy(&n_pid+last_bytes_processed, buffer_in, sizeof(uint32_t)-last_bytes_processed);
+            if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            memcpy(&n_pid, buffer, sizeof(uint32_t));
-            //h_pid = ntohl(n_pid);
             socket.pid = ntohl(n_pid);
             std::cout << "server recv: " << socket.pid << std::endl;
             stage_done(socket);
@@ -766,17 +767,16 @@ int server_communicate_new(Socket &socket) {
         }
         // 6. server recv client's time as a string with a fixed length of 19 bytes
         case 6: {
-            //char time_buf[20] = {0};
-            char buffer[buffer_len] = {0};
-            int val_recv_thing = recv_thing_new(socket, buffer, 19);
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, 19);
             if (val_recv_thing < 0) {
                 return(val_recv_thing);
             }
-            else if (val_recv_thing != 1) {
+            memcpy(socket.time_str+last_bytes_processed, buffer_in, 19-last_bytes_processed);
+            if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            //memcpy(time_buf, buffer, 19);
-            memcpy(socket.time_str, buffer, 19);
             std::cout << "server recv: " << socket.time_str << std::endl;
             stage_done(socket);
         }     
@@ -802,23 +802,15 @@ int server_communicate_new(Socket &socket) {
         // 8. server recv a random string with length *****, and each character is in ASCII 0~255
         case 8: {
             int last_bytes_processed = socket.bytes_processed;
-            char buffer[buffer_len] = {0};
-            int val_recv_thing = recv_thing_new(socket, buffer, socket.random);
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, socket.random);
             if (val_recv_thing < 0) {
                 return val_recv_thing;
             }
-            //cout << "memcpy\t" << val_recv_thing << "\tcontent\t" << buffer << endl;;
-            //memcpy(socket.client_string + socket.bytes_processed, buffer, socket.random - socket.bytes_processed);
-            cout << "socket.bytes_processed\t" << socket.bytes_processed << endl;
-            cout << "last_bytes_processed\t" << last_bytes_processed << endl;
-            memcpy(socket.client_string + last_bytes_processed, buffer, socket.bytes_processed - last_bytes_processed);
-            //strncpy(socket.client_string + socket.bytes_processed, buffer, socket.random - socket.bytes_processed);
-            //cout << "\tcontent\t" << socket.client_string << endl;;
+            memcpy(socket.client_string+last_bytes_processed, buffer_in, socket.random-last_bytes_processed);
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            cout << "client_str\t" << socket.client_string << endl;
-            cout << "buffer\t" << buffer << endl;
             std::cout << "server recv client string ok." << std::endl;
             stage_done(socket);
         }
@@ -836,7 +828,7 @@ int server_communicate_new(Socket &socket) {
             std::stringstream ss_filename;
             ss_filename << "./server_txt/" << socket.stuNo << '.' << socket.pid << ".pid.txt";
             std::string str_filename = ss_filename.str();
-            if (write_file(str_filename.c_str(), socket.stuNo, socket.pid, socket.time_str, socket.client_string) == -1) {
+            if (write_file_new(str_filename.c_str(), socket) == -1) {
                 graceful_return("write_file", -11);
             }
             std::cout << "server end write file." << std::endl;
@@ -845,6 +837,193 @@ int server_communicate_new(Socket &socket) {
         default: {
             graceful_return("stage number beyond index", -13);
         }         
+    }
+}
+
+int client_communicate_new(Socket &socket, const Options &opt) {
+    std::cout << "client_communicate" << std::endl;
+    switch (socket.stage) {
+        // 1. recv "StuNo" from server
+        case 1: {
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer[buffer_len] = {0};
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, strlen(STR_1));
+            if (val_recv_thing < 0) {
+                return(val_recv_thing);
+            }
+            memcpy(buffer+last_bytes_processed, buffer_in, strlen(STR_1)-last_bytes_processed);
+            if (val_recv_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client recv: " << buffer << std::endl;
+            if (!same_string(buffer, STR_1, strlen(STR_1))) {
+                graceful_return("not received correct string", -12);
+            }
+            stage_done(socket);
+        }
+        // 2. send client student number
+        case 2: {
+            socket.stuNo = stu_no;
+            uint32_t n_stuNo = htonl(socket.stuNo);
+            char buffer[buffer_len] = {0};
+            memcpy(buffer, &n_stuNo, sizeof(uint32_t));
+            int val_send_thing = send_thing_new(socket, buffer, sizeof(uint32_t));
+            if (val_send_thing < 0) {
+                return(val_send_thing);
+            }
+            else if (val_send_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client send: " << buffer << std::endl;
+            stage_done(socket);
+        }
+        // 3. recv "pid" from server
+        case 3: {
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer[buffer_len] = {0};
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, strlen(STR_2));
+            if (val_recv_thing < 0) {
+                return(val_recv_thing);
+            }
+            memcpy(buffer+last_bytes_processed, buffer_in, strlen(STR_2)-last_bytes_processed);
+            if (val_recv_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client recv: " << buffer << std::endl;
+            if (!same_string(buffer, STR_2, strlen(STR_2))) {
+                graceful_return("not received correct string", -12);
+            }
+            stage_done(socket);
+        }
+        // 4. send client pid
+        case 4: {
+            uint32_t n_pid;
+            pid_t pid = getpid();
+            if(opt.fork) {
+                n_pid = htonl((uint32_t)pid);
+            }
+            else {
+                //if nofork, send: pid<<16 + socket_id
+                n_pid = htonl((uint32_t)((((int)pid)<<16)+socket.socketfd));
+            }           
+            socket.pid = ntohl(n_pid);
+            char buffer[buffer_len] = {0};
+            memcpy(buffer, &n_pid, sizeof(uint32_t));
+            int val_send_thing = send_thing_new(socket, buffer, sizeof(uint32_t));
+            if (val_send_thing < 0) {
+                return(val_send_thing);
+            }
+            else if (val_send_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client send: " << buffer << std::endl;
+            stage_done(socket);
+        }
+        // 5. recv "TIME" from server
+        case 5: {
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer[buffer_len] = {0};
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, strlen(STR_3)+1);
+            if (val_recv_thing < 0) {
+                return(val_recv_thing);
+            }
+            memcpy(buffer+last_bytes_processed, buffer_in, strlen(STR_3)+1-last_bytes_processed);
+            if (val_recv_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client recv: " << buffer << std::endl;
+            if (!same_string(buffer, STR_3, strlen(STR_3))) {
+                graceful_return("not received correct string", -12);
+            }
+            stage_done(socket);
+        }
+        // 6. send client current time(yyyy-mm-dd hh:mm:ss, 19 bytes)
+        case 6: {
+            char buffer[buffer_len] = {0};
+            str_current_time(socket.time_str);
+            strncpy(buffer, socket.time_str, 19);
+            int val_send_thing = send_thing_new(socket, buffer, 19);
+            if (val_send_thing < 0) {
+                return(val_send_thing);
+            }
+            else if (val_send_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client send: " << buffer << std::endl;
+            stage_done(socket);
+        }
+        // 7. recv "str*****" from server and parse
+        case 7: {
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer[buffer_len] = {0};
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, 9);
+            if (val_recv_thing < 0) {
+                return(val_recv_thing);
+            }
+            memcpy(buffer+last_bytes_processed, buffer_in, 9-last_bytes_processed);
+            if (val_recv_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client recv: " << buffer << std::endl;
+            if (!same_string(buffer, "str", 3)) {
+                graceful_return("not received correct string", -12);
+            }
+            socket.random = parse_str(buffer);
+            if (socket.random < 32768) {
+                graceful_return("not received correct string", -12);
+            }
+            std::cout << "rand number: " << socket.random << std::endl;
+            stage_done(socket);
+        }
+        // 8. send random string in designated length
+        case 8: {
+            char buffer[buffer_len] = {0};
+            create_random_str(socket.random, socket.client_string);
+            memcpy(buffer, socket.client_string, socket.random);
+            int val_send_thing = send_thing_new(socket, buffer, socket.random);
+            if (val_send_thing < 0) {
+                return(val_send_thing);
+            }
+            else if (val_send_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client send client string ok." << std::endl;
+            stage_done(socket);
+        }
+        // 9. recv "end" from server
+        case 9: {
+            int last_bytes_processed = socket.bytes_processed;
+            char buffer[buffer_len] = {0};
+            char buffer_in[buffer_len] = {0};
+            int val_recv_thing = recv_thing_new(socket, buffer_in, strlen(STR_4));
+            if (val_recv_thing < 0) {
+                return(val_recv_thing);
+            }
+            memcpy(buffer+last_bytes_processed, buffer_in, strlen(STR_4)-last_bytes_processed);
+            if (val_recv_thing != 1) {
+                return 0;       // not all processed
+            }
+            std::cout << "client recv: " << buffer << std::endl;
+            if (!same_string(buffer, STR_4, strlen(STR_4))) {
+                graceful_return("not received correct string", -12);
+            }
+            std::cout << "client begin write file." << std::endl;
+            std::stringstream ss_filename;
+            ss_filename << "./client_txt/" << socket.stuNo << '.' << socket.pid << ".pid.txt";
+            std::string str_filename = ss_filename.str();
+            if (write_file_new(str_filename.c_str(), socket) == -1) {
+                graceful_return("write_file", -11);
+            }
+            std::cout << "client end write file." << std::endl;
+            stage_done(socket);
+        }                        
+        default: {
+            graceful_return("stage number beyond index", -13);
+        }
     }
 }
 
@@ -872,9 +1051,10 @@ int send_thing_new(Socket &socket, const char *str, const int send_len) {
 
 int recv_thing_new(Socket &socket, char *buffer, const int recv_len) {
     memset(buffer, 0, sizeof(char)*buffer_len);
+    // int val_recv = recv(socket.socketfd, buffer+socket.bytes_processed, max_recvlen, 0);
     int val_recv = recv(socket.socketfd, buffer, max_recvlen, 0);
     if (val_recv < 0) {
-        cout << "DEBUG: total_recv: " << socket.bytes_processed << ", val_recv: " << val_recv << endl;
+        cout << "DEBUG: bytes_processed: " << socket.bytes_processed << ", val_recv: " << val_recv << endl;
         graceful_return("recv", -10);
     }
     else if (val_recv == 0) {
@@ -894,28 +1074,23 @@ int recv_thing_new(Socket &socket, char *buffer, const int recv_len) {
     return 0;       // no error, but not all bytes processed
 }
 
-/*
-int server_write_file(Socket socket) {
-    while(1) {        
-        if (peer_is_disconnected(socket.socketfd)) {
-            std::cout << "peer is disconnected!" << std::endl;
-            // close(socketfd);
-            break;
-        }
-        else {
-            sleep(1);       // check at each second.
-        }
+int write_file_new(const char *str_filename, Socket &socket) {
+    // return 0: all good
+    // return -1: file open error
+    std::ofstream myfile;
+    myfile.open(str_filename, std::ofstream::binary|std::ios::out|std::ios::trunc);
+    if (!myfile.is_open()) {
+        graceful_return("file open", -1);
     }
-    std::cout << "server begin write file." << std::endl;
-    std::stringstream ss_filename;
-    ss_filename << "./server_txt/" << socket.stuNo << '.' << socket.pid << ".pid.txt";
-    std::string str_filename = ss_filename.str();
-    if (write_file(str_filename.c_str(), socket.stuNo, socket.pid, socket.time_str, socket.client_string) == -1) {
-        graceful_return("write_file", -11);
-    }
-    std::cout << "server end write file" << std::endl;
-    return 0;       // all good
+
+    myfile << socket.stuNo << '\n';
+    myfile << socket.pid << '\n';
+    myfile << socket.time_str << '\n';
+    myfile.write(reinterpret_cast<const char*>(socket.client_string), socket.random);
+    myfile.close();
+    return 0;
 }
+
 
 
 /********************************************/
@@ -1004,130 +1179,3 @@ int loop_server_fork(int listener, const Options &opt)
     }
 }
 
-
-//server in fork mode, does not need a fd_set
-int server_communicate_fork(Socket connfd, const Options &opt) {
-    // return 0: all good
-    // return -1: select error
-    // return -2: time out
-    // return -3: peer offline
-    // return -4: not permitted to send
-    // return -5: ready_to_send error
-    // return -6: send error
-    // return -7: message sent is of wrong quantity of byte
-    // return -8: not permitted to recv
-    // return -9: ready_to_recv error
-    // return -10: not received exact designated quantity of bytes
-    // return -11: write_file error
-
-    // debug
-    std::cout << "server_communicate" << std::endl;
-
-    int val_send_thing;
-    std::string str;
-    char buffer[BUFFER_LEN] = {0};
-    int var_recv_thing;
-    
-    // 1. server send a string "StuNo"
-    val_send_thing = send_thing(connfd.socketfd, STR_1, opt, strlen(STR_1));
-    if (val_send_thing < 0) 
-        return val_send_thing;
-    
-    std::cout << "server send " << STR_1 << std::endl;
-
-    // 2. server recv an int as student number, network byte order
-    uint32_t h_stuNo = 0;
-    uint32_t n_stuNo = 0;
-
-    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, (int)sizeof(uint32_t));
-    if (var_recv_thing < 0) 
-        return var_recv_thing;
-    
-    memcpy(&n_stuNo, buffer, sizeof(uint32_t));
-    h_stuNo = ntohl(n_stuNo);
-    std::cout << "server recv " << h_stuNo << std::endl;
-
-    // 3. server send a string "pid"
-    val_send_thing = send_thing(connfd.socketfd, STR_2, opt, strlen(STR_2));
-    if (val_send_thing < 0) 
-        return val_send_thing;
-    
-    std::cout << "server send " << STR_2 << std::endl;
-
-    // 4. server recv an int as client's pid, network byte order
-    uint32_t h_pid = 0;
-    uint32_t n_pid = 0;
-
-    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, (int)sizeof(uint32_t));
-    if (var_recv_thing < 0) 
-        return var_recv_thing;
-    
-
-    memcpy(&n_pid, buffer, sizeof(uint32_t));
-    h_pid = ntohl(n_pid);
-
-    std::cout << "server recv " << h_pid << std::endl;
-
-    // 5. server send a string "TIME"
-    val_send_thing = send_thing(connfd.socketfd, STR_3, opt, strlen(STR_3)+1);
-    if (val_send_thing < 0) 
-        return val_send_thing;
-    
-    std::cout << "server send " << STR_3 << std::endl;
-
-    // 6. server recv client's time as a string with a fixed length of 19 bytes
-    char time_buf[20] = {0};
-
-    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, 19);
-    if (var_recv_thing < 0) {
-        return var_recv_thing;
-    }
-    else {
-        memcpy(time_buf, buffer, 19);
-    }
-    std::cout << "server recv " << time_buf << std::endl;
-
-    // 7. server send a string "str*****", where ***** is a 5-digit random number ranging from 32768-99999, inclusively.
-    srand( (unsigned)time( NULL ) ); 
-    int random = rand() % 67232 + 32768;
-    std::stringstream ss;
-    ss << "str" << random;
-    str = ss.str();
-    val_send_thing = send_thing(connfd.socketfd, str.c_str(), opt, str.length()+1);
-
-    if (val_send_thing < 0) 
-        return val_send_thing;
-
-    std::cout << "server send " << str << std::endl;
-
-    // 8. server recv a random string with length *****, and each character is in ASCII 0~255.
-    unsigned char client_string[BUFFER_LEN] = {0};
-    memset(buffer, 0, sizeof(char) * BUFFER_LEN);
-    var_recv_thing = recv_thing(connfd.socketfd, buffer, opt, random);
-    if (var_recv_thing < 0) 
-        return var_recv_thing;
-    
-    memcpy(client_string, buffer, random);
-    std::cout << "server recv ok" << std::endl;
-
-    // 9. server send a string "end"
-    val_send_thing = send_thing(connfd.socketfd, STR_4, opt, strlen(STR_4));
-    if (val_send_thing < 0) 
-        return val_send_thing;
-    
-    std::cout << "server send " << STR_4 << std::endl;
-
-
-
-    std::cout << "server begin write file" << std::endl;
-    std::stringstream ss_filename;
-    ss_filename << h_stuNo << '.' << h_pid << ".pid.txt";
-    std::string str_filename = ss_filename.str();
-    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string) == -1) {
-        graceful_return("write_file", -11);
-    }
-    std::cout << "server end write file" << std::endl;
-
-    // return 0 as success
-    return 0;
-}
