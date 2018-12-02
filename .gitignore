@@ -4,5 +4,3 @@ client
 *.o
 .*.swp
 *.txt
-shared_library - Copy.cpp
-shared_library - Copy.hpp
