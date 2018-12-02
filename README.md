@@ -1,6 +1,6 @@
 # SJ Group Work 3: TCP Socket Integrated Task
 
-## Makefile logic
+## Makefile Logic
 
 The code base consists of two parts: the ./server and ./client binary executables.
 
@@ -10,7 +10,7 @@ The makefile generates object files for each library source file before linking 
 
 This project is designed to be developed with a test driven approach to cope with the potential escalation of the complexity of future computer network projects.
 
-### How to write and run a test
+### How to Write and Run a Test
 
 First, we should make test run at both server side and client side using following commands:
 
@@ -47,7 +47,7 @@ ls client_txt/*.txt | wc -l
 diff -r server_txt/ client_txt/
 ```
 
-### Test results
+### Test Results
 
 Here comes the test results:
 
