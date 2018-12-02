@@ -7,7 +7,7 @@ int main(int argc, char *argv[]) {
     Options opt = parse_arguments(argc, argv, false);
 
     int listener = get_listener(opt);
-
+  
     if (opt.fork)
         loop_server_fork(listener, opt);
     else
