@@ -62,10 +62,6 @@ inline void graceful(const char *s, int x) { perror(s); exit(x); }
     perror((s));\
     return((x)); }
 
-#define graceful_nonfork(opt) {client_nofork(opt);}
-
-//#define minimum(a, b) (a < b ? a : b)
-
 class Socket {
     public:
         Socket(int socketfd) 
@@ -200,3 +196,19 @@ int create_random_str(const int length, unsigned char *random_string);
 
 int parse_str(const char *str);
     // parse "str*****" into a 5-digit number
+
+int loop_server_fork(int listener, const Options &opt);
+    // can be either blocking or non-blocking
+
+int check_child();     
+    //function:
+    //      wait() child process if and only if receive SIGCHLD
+
+int loop_client_fork(const Options &opt);
+
+int client_reconnected(const Options &opt);
+//function:
+//      reconnect
+// return:
+//      0   reconnection failed 
+//      1   reconnection succeed

@@ -443,12 +443,11 @@ int client_nofork(const Options &opt) {
 
     unsigned int num_success = 0;
     unsigned int num_current_conn = 0;
-    //int num_current_conn = 0;
     while (num_success < opt.num) {
         //sleep(1);
         cout << "begin of main loop\n";
         cout << "set size: " << set_data_socket.size() << endl;
-        if (num_current_conn < min(max_active_connections, int(opt.num - num_success - num_current_conn))) {
+        if (int(num_current_conn) < min(max_active_connections, int(opt.num - num_success - num_current_conn))) {
             // create new connections
             int newfd = create_connection(opt);
             if (newfd < 0) { // error
@@ -551,7 +550,7 @@ int create_connection(const Options &opt) {
     if (!opt.block) { //non-blocking
         int flags = fcntl(sockfd, F_GETFL, 0);
         fcntl(sockfd, F_SETFL, flags | O_NONBLOCK); 
-
+        errno = 0;
         if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
             // EINPROGRESS means connection is in progress
             // then select on it
@@ -812,5 +811,259 @@ int parse_str(const char *str) {
     }
     else {
         return parsed;
+    }
+}
+
+int loop_server_fork(int listener, const Options &opt) {
+    pid_t pid;
+    //curnum: current children process num
+    int curnum = 0;
+    int rtr;    //return value
+    fd_set readfds, rfds, wfds;
+
+    //server won't naturally end
+    while(1) {
+        //curnum-1 when any child exit
+        while((rtr = check_child()) == 1) {
+            curnum--;
+        }
+        if (curnum <= max_active_connections) {
+            //nonblock
+            if(!opt.block) {
+                FD_ZERO(&readfds);
+                FD_SET(listener, &readfds);
+                if((rtr = select(listener + 1, &readfds, NULL, NULL, NULL)) == -1) {
+                    graceful("loop_server_fork select", -20);
+                }
+            }
+            Socket newfd(-1);
+            newfd.socketfd = server_accept_client(listener, opt.block, 
+                                (fd_set*)NULL, (int*)NULL, (set<Socket> *)NULL, (queue<Socket> *)NULL);
+
+            pid = fork();
+
+            if(pid == -1) {
+                graceful("loop_server_fork fork", -20);
+            }
+            //child
+            else if(pid == 0) {
+                //nonblock
+                if(!opt.block) {
+                    rtr = 0;
+                    while(rtr >= 0) {
+                        if(newfd.stage > 9) {
+                            break;
+                        }
+                        //newfd.stage:
+                        //  odd:    send
+                        //  even:   recv 
+                        if(!(newfd.stage % 2)) {
+                            FD_ZERO(&rfds);
+                            FD_SET(newfd.socketfd, &rfds);
+                            if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+                                graceful("loop_server_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &rfds))
+                                FD_CLR(newfd.socketfd, &rfds);  
+                        }
+                        else {
+                            FD_ZERO(&wfds);
+                            FD_SET(newfd.socketfd, &wfds);
+                            if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
+                                graceful("loop_server_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &wfds))
+                                FD_CLR(newfd.socketfd, &wfds);  
+                        }
+
+                        rtr = server_communicate_new(newfd);
+                    }     
+                }
+                else
+                {
+                    while((rtr = server_communicate_new(newfd)) >= 0)
+                        if(newfd.stage > 9)
+                            break;
+                }
+                
+                if(rtr < 0) //error handling, close socketfd
+                    close(newfd.socketfd);
+                //rtr = 1, stage done
+                exit(0); 
+            }
+            else    //father
+                curnum ++;
+        }
+        //else, wait until socket_q.size() < max_active_connections
+        else    
+            continue;
+    }
+}
+
+int check_child() {   
+    errno = 0;
+    pid_t pid = waitpid(-1, NULL, WNOHANG);   
+    //set option = WNOHANG to avoid blocking in waitpid()
+    //waitpid would return immediately if no exit child 
+    if(pid == -1) {
+        //ECHILD: no child process
+        if(errno == ECHILD) {
+            return 0;
+        }
+        graceful("check_SIGCHLD waitpid", -1);
+    }
+    //no exit child
+    else if(pid == 0) {
+        return 0;
+    }
+    //found exit child
+    else if(pid > 0) {
+        return 1;
+    }
+    return 2; 
+}
+
+int loop_client_fork(const Options &opt) {
+    pid_t pid;
+    //cur_num: current children process num
+    unsigned int cur_num = 0, conn_num = 0;
+    int rtr;    //return value
+    fd_set rfds, wfds;
+
+    while(1) {
+        while((rtr = check_child()) == 1) {
+            cur_num--;
+        }
+        if(cur_num < max_active_connections && conn_num < opt.num) {
+            Socket newfd(-1);
+            newfd.socketfd = create_connection(opt); 
+            
+            pid = fork();
+            if(pid == -1) {
+                graceful("loop_client_fork fork", -20);
+            }
+            //child
+            else if(pid == 0) {
+                //nonblock
+                if(!opt.block) {
+                    rtr = 0;
+                    while(rtr >= 0) {
+                        if(newfd.stage > 9) {
+                            break;
+                        }
+                        //newfd.stage:
+                        //  odd:    recv
+                        //  even:   send 
+                        if(newfd.stage % 2) {
+                            FD_ZERO(&rfds);
+                            FD_SET(newfd.socketfd, &rfds);
+                            if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1) {
+                                graceful("loop_client_fork select", -1);
+                            }
+                            else if(FD_ISSET(newfd.socketfd, &rfds)) {
+                                FD_CLR(newfd.socketfd, &rfds);
+                            }
+                        }
+                        else {
+                            FD_ZERO(&wfds);
+                            FD_SET(newfd.socketfd, &wfds);
+                            if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1) {
+                                graceful("loop_client_fork select", -1);
+                            }
+                            else if(FD_ISSET(newfd.socketfd, &wfds)) {
+                                FD_CLR(newfd.socketfd, &wfds);
+                            }      
+                        }
+
+                        rtr = client_communicate_new(newfd, opt);
+                    }
+                }
+                else {
+                    while((rtr = client_communicate_new(newfd, opt)) >= 0) {
+                        if(newfd.stage > 9) {
+                            break;
+                        }
+                    }                            
+                }
+                //error handling: close socketfd and reconnect
+                if(rtr < 0) {
+                    close(newfd.socketfd);
+                    //reconnecting until succeed
+                    while(!client_reconnected(opt));
+                }
+                //rtr = 1, stage done
+                exit(0); 
+            }
+            //father
+            else {
+                cur_num ++;
+                conn_num ++;
+            }
+        }
+        //all connection finished
+        else if(conn_num >= opt.num) {
+            break;
+        }
+        //reach max_active_connections
+        else {
+            continue;
+        }
+    }
+    return 0;
+}
+
+int client_reconnected(const Options &opt) {
+    //sleep 20ms
+    usleep(200000);
+    int rtr;    //return value
+    fd_set rfds, wfds;
+
+    Socket newfd(-1);
+    newfd.socketfd = create_connection(opt); 
+    //nonblock
+    if(!opt.block) {
+        rtr = 0;
+        while(rtr >= 0) {
+            if(newfd.stage > 9) {
+                break;
+            }
+            //newfd.stage:
+            //  odd:    recv
+            //  even:   send 
+            if(newfd.stage % 2) {
+                FD_ZERO(&rfds);
+                FD_SET(newfd.socketfd, &rfds);
+                if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1) {
+                    graceful("loop_client_fork select", -1);
+                }
+                else if(FD_ISSET(newfd.socketfd, &rfds)) {
+                    FD_CLR(newfd.socketfd, &rfds);
+                }
+            }
+            else {
+                FD_ZERO(&wfds);
+                FD_SET(newfd.socketfd, &wfds);
+                if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1) {
+                    graceful("loop_client_fork select", -1);
+                }
+                else if(FD_ISSET(newfd.socketfd, &wfds)) {
+                    FD_CLR(newfd.socketfd, &wfds); 
+                }
+            }
+            rtr = client_communicate_new(newfd, opt);
+        }
+    }
+    else {
+        while((rtr = client_communicate_new(newfd, opt)) >= 0) {
+            if(newfd.stage > 9) {
+                break;
+            }
+        }         
+    }
+    //error handling: close socketfd and reconnect
+    if(rtr < 0) {
+        close(newfd.socketfd);
+        return 0;
+    }
+    else {
+        return 1;
     }
 }

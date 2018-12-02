@@ -9,8 +9,7 @@ int main(int argc, char *argv[]) {
     int listener = get_listener(opt);
 
     if (opt.fork)
-        //loop_server_fork(listener, opt);
-        ;
+        loop_server_fork(listener, opt);
     else
         loop_server_nofork(listener, opt);
 
