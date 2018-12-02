@@ -19,7 +19,7 @@ int server_bind_port(int listener, int listen_port) {
     return bind(listener, (sockaddr*) &listen_addr, sizeof(sockaddr));
 }
 
-void fill_up_sets(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
+void fill_up_sets(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q) {
     // fill up the sets from the queue
     while (!socket_q.empty() && set_data_socket.size() < max_active_connections) {
         // pop a new socket from the queue
@@ -73,20 +73,27 @@ int get_listener(const Options &opt) {
 // }
 
 
-void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> &socket_q, const bool is_server) {
+void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> *socket_q) {
     // TODO: remove from the STL set also
+    set<Socket> newset;
     for (auto s: set_data_socket) {
         if (!s.has_been_active) {
             FD_CLR(s.socketfd, &master);
+        } else {
+            newset.insert(s);
         }
     }
-    fill_up_sets(master, fdmax, set_data_socket, socket_q, is_server);
+    set_data_socket = newset;
+
+    if (socket_q != nullptr) { // optionally fill up sets
+        fill_up_sets(master, fdmax, set_data_socket, *socket_q);
+    }
 }
 
-template <class T>
-typename T::iterator find_socketfd(int socketfd, T collection) {
-    return find_if(collection.begin(), collection.end(), [=] (const Socket &s) { return s.socketfd == socketfd; });
-}
+// template <class T>
+// typename T::iterator find_socketfd(int socketfd, T collection) {
+//     return find_if(collection.begin(), collection.end(), [=] (const Socket &s) { return s.socketfd == socketfd; });
+// }
 
 void loop_server_nofork(int listener, const Options &opt) {
     queue<Socket> socket_q;
@@ -117,7 +124,7 @@ void loop_server_nofork(int listener, const Options &opt) {
                 break;
             case 0:
                 // timeout, close sockets that haven't responded in an interval, exept for listener
-                remove_dead_connections(master, fdmax, set_data_socket, socket_q, true);
+                remove_dead_connections(master, fdmax, set_data_socket, &socket_q);
                 tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
                 for (auto socket_it = set_data_socket.begin(); socket_it != set_data_socket.end(); socket_it++) {
                     // reset has been active
@@ -154,7 +161,7 @@ void loop_server_nofork(int listener, const Options &opt) {
                             FD_CLR(i, &master);
                             //set_data_socket.erase(find_socketfd(i, set_data_socket));
                             set_data_socket.erase(socket_it);
-                            fill_up_sets(master, fdmax, set_data_socket, socket_q, true);
+                            fill_up_sets(master, fdmax, set_data_socket, socket_q);
                             break;
                         } else {
                             // after a successful communication
@@ -165,7 +172,7 @@ void loop_server_nofork(int listener, const Options &opt) {
                             if (comm_rv == 1 && socket.stage == 10) {
                                 cout << "removing a finished socket...\n";
                                 FD_CLR(i, &master);
-                                fill_up_sets(master, fdmax, set_data_socket, socket_q, true);
+                                fill_up_sets(master, fdmax, set_data_socket, socket_q);
                                 break;
                             } else {
                                 // re-insert socket into the set
@@ -190,18 +197,19 @@ void loop_server_nofork(int listener, const Options &opt) {
 
 int create_connection(const Options &opt) {
     // create a connection from opt
+    // return negative code on error, socketfd on success
 
     struct sockaddr_in   servaddr;
     memset(&servaddr, 0, sizeof(servaddr));
     servaddr.sin_family = AF_INET;
     servaddr.sin_port = htons(stoi(opt.port));
     if(inet_pton(AF_INET, opt.ip.c_str(), &servaddr.sin_addr) < 0)
-        graceful("Invalid ip address", -1);
+        graceful_return("Invalid ip address", -1);
 
     // get a socket
     int sockfd;
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        graceful("socket", -2);
+        graceful_return("socket", -2);
 
     // connect
     if (!opt.block) { //non-blocking
@@ -213,7 +221,7 @@ int create_connection(const Options &opt) {
             // then select on it
             fd_set fds;      
             if(errno != EINPROGRESS)
-                graceful("connect", -3);
+                graceful_return("connect", -3);
             
             FD_ZERO(&fds);      
             FD_SET(sockfd, &fds);       
@@ -223,13 +231,13 @@ int create_connection(const Options &opt) {
                 int error = -1, slen = sizeof(int);
                 getsockopt(sockfd, SOL_SOCKET, SO_ERROR, &error, (socklen_t *)&slen);
                 //error == 0 means connect succeeded
-                if(error != 0) graceful("connect", -3);
+                if(error != 0) graceful_return("connect", -3);
             }
         }
         //connect succeed   
     } else { // blocking
         if(connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1)
-            graceful("connect", -3);
+            graceful_return("connect", -3);
     }
     return sockfd;
 }
@@ -532,30 +540,99 @@ int client_communicate(int socketfd, const Options &opt) {
     return 0;
 }
 
+
 int client_nofork(const Options &opt) {
-    // initialize opt.num many connections and add them to the master set.
-    // exchange data on these connections, creating new connections when these connections
-    // close on network failure
+    set<Socket> set_data_socket;
+    fd_set master, readfds, writefds;      // master file descriptor list
+    FD_ZERO(&master);
+    int fdmax = 0; // maximum file descriptor number 
+    timeval tv {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
 
-    // initialize connections
-    //fd_set master;
-    int sockets[2000];
-    for (int i = 0; i < (int)opt.num; i++) {
-        //FD_SET(create_connection(opt), &master);
-        sockets[i] = create_connection(opt);
-        cout << "DEBUG: sockets created and connected: " << i+1 << endl;
-    }
+    unsigned int num_success = 0;
+    unsigned int num_current_conn = 0;
+    while (num_success < opt.num) {
+        //sleep(1);
+        cout << "begin of main loop\n";
+        cout << "set size: " << set_data_socket.size() << endl;
+        if (num_current_conn < min(max_active_connections, int(opt.num - num_success - num_current_conn))) {
+            // create new connections
+            int newfd = create_connection(opt);
+            if (newfd < 0) { // error
+                continue;
+            } else {
+                num_current_conn++;
+                FD_SET(newfd, &master); // add to master set
+                set_data_socket.emplace(newfd);
+                if (newfd > fdmax) {      // keep track of the max
+                    fdmax = newfd;
+                }
+            }
+        } else {
+            // communicate
+            readfds = master; // copy at the last minutes
+            writefds = master; // copy at the last minutes
+            int rv = select(fdmax+1, &readfds, &writefds, NULL, &tv);
+            cout << "select returned with " << rv << endl;
+            switch (rv) {
+                case -1:
+                    graceful("select in main loop", 5);
+                    break;
+                case 0:
+                    // timeout, close sockets that haven't responded in an interval, exept for listener
+                    remove_dead_connections(master, fdmax, set_data_socket, nullptr);
+                    tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
+                    for (auto socket_it = set_data_socket.begin(); socket_it != set_data_socket.end(); socket_it++) {
+                        // reset has been active
+                        auto s = *socket_it;
+                        s.has_been_active = false;
+                        set_data_socket.erase(socket_it); 
+                        set_data_socket.insert(s); 
+                    }
+                    break;
+                default:
+                    for (auto socket_it = set_data_socket.begin(); socket_it != set_data_socket.end(); socket_it++) {
+                        // won't touch the variables that are used for the sorting
+                        // cast to mutable
+                        auto socket = *socket_it;
+                        int i = socket.socketfd;
+                        cout << "DEBUG: i = " << i << endl;
+                        cout << "DEBUG: stage = " << socket.stage << endl;
+                        if ((FD_ISSET(i, &writefds) && socket.stage % 2 == 0) || 
+                                (FD_ISSET(i, &readfds) && socket.stage % 2 == 1))  { // we got a readable or writable socket
+                            int comm_rv = client_communicate_new(socket, opt);
+                            cout << "client_communicate_new returned with " << comm_rv << endl;
+                            if (comm_rv < 0) {
+                                // only close socket if an error is encountered
+                                close(i); 
+                                // remove the socket from the sets
+                                FD_CLR(i, &master);
+                                set_data_socket.erase(socket_it);
+                                break;
+                            } else {
+                                // after a successful communication
+                                // remove from the set if done
+                                set_data_socket.erase(socket_it); // remove for update or deletion
 
-    // exchange data on these connections, creating new connections when these connections
-    // close on network failure
-    for (int i = 0; i < (int)opt.num; i++) {
-        int rv = client_communicate(sockets[i], opt);
-        if (rv < 0) {
-            sockets[i--] = create_connection(opt);
-            continue;
-        }
+                                if (comm_rv == 1 && socket.stage == 10) {
+                                    cout << "removing a finished socket...\n";
+                                    FD_CLR(i, &master);
+                                    num_success++;
+                                    num_current_conn--;
+                                    break;
+                                } else {
+                                    // re-insert socket into the set if not done
+                                    socket.has_been_active = true;
+                                    set_data_socket.insert(socket);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                    break;
+            } // switch select 
+        } // communicate
+        cout << "end of main loop\n\n";
     }
-    return 0;
 }
 
 //void handler(int sig) {
@@ -647,7 +724,7 @@ int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, s
 
         if (master != NULL && fdmax != NULL && set_data_socket != NULL && socket_q != NULL) { // if using select
             (*socket_q).emplace(newfd);
-            fill_up_sets(*master, *fdmax, *set_data_socket, *socket_q, true);
+            fill_up_sets(*master, *fdmax, *set_data_socket, *socket_q);
         }
 
         char remoteIP[INET6_ADDRSTRLEN];
@@ -692,15 +769,17 @@ int str_current_time(char *time_str) {
 }
 
 int create_random_str(const int length, unsigned char *random_string) {
-	unsigned char *p;
-    p = (unsigned char *)malloc(length+1);
-	srand((unsigned)time(NULL));
-	for(int i = 0; i <= length; i++) {
-		p[i] = rand() % 256;
+    //unsigned char *p;
+    //p = (unsigned char *)malloc(length+1);
+    unsigned char p[buffer_len] = {0};
+        srand((unsigned)time(NULL));
+        for(int i = 0; i < length; i++) {
+            p[i] = rand() % 256;
     }
-	p[length] = '\0';
-    memcpy(random_string, p, length+1);
-	return 0;
+    //p[length] = '\0';
+    //memcpy(random_string, p, length+1);
+    memcpy(random_string, p, length);
+    return 0;
 }
 
 bool same_string(const char *str1, const char *str2, const int cmp_len) {
