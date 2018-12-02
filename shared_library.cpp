@@ -606,6 +606,7 @@ int client_nofork(const Options &opt) {
                                 // remove the socket from the sets
                                 FD_CLR(i, &master);
                                 set_data_socket.erase(socket_it);
+				num_current_conn--;
                                 break;
                             } else {
                                 // after a successful communication
