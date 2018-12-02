@@ -1,5 +1,3 @@
-loop_client
-loop_server
 server
 client
 *.so

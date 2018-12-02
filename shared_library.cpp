@@ -839,6 +839,7 @@ int loop_server_fork(int listener, const Options &opt) {
             Socket newfd(-1);
             newfd.socketfd = server_accept_client(listener, opt.block, 
                                 (fd_set*)NULL, (int*)NULL, (set<Socket> *)NULL, (queue<Socket> *)NULL);
+
             pid = fork();
 
             if(pid == -1) {
