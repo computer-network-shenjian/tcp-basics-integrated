@@ -1,45 +1,55 @@
-# tcp-basics-integrated
+# SJ Group Work 3: TCP Socket Integrated Task
 
 ## Makefile logic
 
-The code base consists of mainly three parts: the ./server and ./client binary executables, `libg3.so` dynamic library that contains all reusable code, and test cases in `tests/` with file names corresponding to the function each test case targets at.
+The code base consists of two parts: the ./server and ./client binary executables.
 
 The makefile generates object files for each library source file before linking them together to avoid the recompilation of code that isn't modified.
 
 ## Test Driven Development
 
-This project is designed to be developed with a test driven approach to cope with the potential escalation of the complexity of future computer network projects. The testing api is designed to be as easy to use as possible to lower the mental burden of actually using tests during development.
+This project is designed to be developed with a test driven approach to cope with the potential escalation of the complexity of future computer network projects.
 
-All tests resides in the `tests/` directory. Running `make tests` in the root directory automatically picks up all `.cpp` files in `tests/` and compile them into test binaries, linking together with the dynamic library `libg3.so` so you have all library functions available to call and test.
+### How to write and run a test
 
-## How to write and run a test
+First, we should make test run at both server side and client side using following commands:
 
-Here is an example writing a test case with _main()_ function and running it. The test case is located at `tests/parse_arguments.cpp` and the make command autocatically finds it so no modification to Makefile is required!
+```bash
+# local tests: 9 tests
+# server side
+make && ./server --ip localhost --port 4000 --block --fork > /dev/null
+make && ./server --ip localhost --port 4000 --nonblock --fork > /dev/null
+make && ./server --ip localhost --port 4000 --nonblock --nofork > /dev/null
+# client side
+make && ./client --ip localhost --port 4000 --block --fork --num 1000 > /dev/null
+make && ./client --ip localhost --port 4000 --nonblock --fork --num 1000 > /dev/null
+make && ./client --ip localhost --port 4000 --nonblock --nofork --num 1000 > /dev/null
 
-```make
-$ make tests && LD_LIBRARY_PATH=. tests/parse_arguments --ip 1.1.1.1 --port 12 --block --fork  --num 110
-g++ -std=c++11 -fPIC -Wall -Wextra   -c -o parse_arguments.o parse_arguments.cpp
-g++ -o libg3.so parse_arguments.o parse_arguments.hpp -shared -std=c++11 -fPIC -Wall -Wextra
-g++ -std=c++11 -fPIC -Wall -Wextra -L. -lg3 -o tests/parse_arguments tests/parse_arguments.cpp
-is_client = true
-ip:     1.1.1.1
-port:   12
-num:    110
-block:  1
-fork:   1
-
-is_client = false
-ip:     1.1.1.1
-port:   12
-num:    110
-block:  1
-fork:   1
-
-test finished
-
+# online tests: 9 tests, with server side ip 10.60.102.252(you can modify it)
+# server side
+make && ./server --ip 0.0.0.0 --port 20350 --block --fork > /dev/null
+make && ./server --ip 0.0.0.0 --port 20350 --nonblock --fork > /dev/null
+make && ./server --ip 0.0.0.0 --port 20350 --nonblock --nofork > /dev/null
+# client side
+make && ./client --ip 10.60.102.252 --port 20350 --block --fork --num 1000 > /dev/null
+make && ./client --ip 10.60.102.252 --port 20350 --nonblock --fork --num 1000 > /dev/null
+make && ./client --ip 10.60.102.252 --port 20350 --nonblock --nofork --num 1000 > /dev/null
 ```
 
-You see the elegance of test driven development? It's as easy as that. Please write rigid tests when possible!
+Then, we should compare txt files in two folders:
+
+```bash
+# check file quantity in each folder
+ls server_txt/*.txt | wc -l
+ls client_txt/*.txt | wc -l
+
+# compare difference recursively in two folders
+diff -r server_txt/ client_txt/
+```
+
+### Test results
+
+Here comes the test results:
 
 ### More about TDD
 
