@@ -1107,12 +1107,14 @@ int check_child()
     //set option=WNOHANG to avoid blocking in waitpid()
     //waitpid would return immediately if no exit child 
     if((pid = waitpid(-1, NULL, WNOHANG)) == -1)
+    {
+        if(errno == 10) //errno 10: no child process
+            return 0;
         graceful("check_SIGCHLD waitpid", -1);
-
+    }
     //no exit child
     else if(pid == 0)   
         return 0;
-
     //found exit child
     else if(pid > 0)
         return 1;
@@ -1128,54 +1130,161 @@ int loop_server_fork(int listener, const Options &opt)
 {
     //create SIGCHID handler
 //  signal(SIGCHLD, sigchld_handler);
-
-    Socket newfd;
     pid_t pid;
     //curnum: current children process num
     int curnum = 0;
     int rtr;    //return value
+    fd_set readfds, wfds;
 
-    while(1)    //server won't end naturally 
+    while(1)    //server won't naturally end 
     {
-        //curnum-1 when no child exit
-        if((rtr = check_child()) == 1)
+        //curnum-1 when any child exit
+        while((rtr = check_child()) == 1)
             curnum --;
 
         if(curnum <= max_active_connections)
         {
             if(!opt.block)  //nonblock
             {
-                fd_set readfds;
                 FD_ZERO(&readfds);
                 FD_SET(listener, &readfds);
                 if((rtr = select(listener + 1, &readfds, NULL, NULL, NULL)) == -1)
                     graceful("loop_server_fork select", -20);
             }
-
-            newfd.socketfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
-            newfd.stage = 0;
+            Socket newfd(-1);
+            newfd.socketfd = server_accept_client(listener, opt.block, 
+                                (fd_set*)NULL, (int*)NULL, (set<Socket> *)NULL, (queue<Socket> *)NULL);
             
             pid = fork();
             if(pid == -1)
                 graceful("loop_server_fork fork", -20);
-            
             else if(pid == 0)   //child 
             {
-                //close error sockfd
-                /*
-                    need to replace with new server_communicate_fork()
-                */
-                if(server_communicate_fork(newfd, opt) < 0)
+                if(!opt.block)
+                {
+                    FD_ZERO(&wfds);
+                    FD_SET(newfd.socketfd, &wfds);
+
+                    if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
+                        graceful("loop_server_fork select", -1);
+
+                    else if(FD_ISSET(newfd.socketfd, &wfds))
+                        FD_CLR(newfd.socketfd, &wfds);      
+                }
+
+                while((rtr = server_communicate_new(newfd)) >= 0)
+                    if(newfd.stage > 9)
+                        break;
+                
+                if(rtr < 0) //error handling, close socketfd
                     close(newfd.socketfd);
-            
-                exit(0); //exit directlly with no error
+                //rtr = 1, stage done
+                exit(0); 
             }
             else    //father
                 curnum ++;
         }
-        //else, wait until socket_q.size() < MAX_NUM
+        //else, wait until socket_q.size() < max_active_connections
         else    
             continue;
     }
 }
 
+
+int client_reconnected(const Options &opt)
+{
+    int rtr;    //return value
+    fd_set rfds;
+
+    Socket newfd(-1);
+    newfd.socketfd = create_connection(opt); 
+
+    if(!opt.block)
+    {
+        FD_ZERO(&rfds);
+        FD_SET(newfd.socketfd, &rfds);
+
+        if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+            graceful("loop_client_fork select", -1);
+
+        else if(FD_ISSET(newfd.socketfd, &rfds))
+            FD_CLR(newfd.socketfd, &rfds);      
+    }
+
+    while((rtr = client_communicate_new(newfd, opt)) >= 0)
+        if(newfd.stage > 9)
+            break;
+        
+        if(rtr < 0) //error handling: close socketfd and reconnect
+        {
+            close(newfd.socketfd);
+            return 0;
+        }
+        else
+            return 1;
+}
+
+
+int loop_client_fork(const Options &opt)
+{
+    pid_t pid;
+    //cur_num: current children process num
+    int cur_num = 0, conn_num = 0;
+    int rtr;    //return value
+    fd_set rfds;
+
+    while(1)
+    {
+        while((rtr = check_child()) == 1)
+            cur_num --;
+
+        if(cur_num < max_active_connections && conn_num < opt.num)
+        {
+            Socket newfd(-1);
+            newfd.socketfd = create_connection(opt); 
+            
+            pid = fork();
+            if(pid == -1)
+                graceful("loop_client_fork fork", -20);
+            else if(pid == 0)   //child 
+            {
+                if(!opt.block)
+                {
+                    FD_ZERO(&rfds);
+                    FD_SET(newfd.socketfd, &rfds);
+
+                    if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+                        graceful("loop_client_fork select", -1);
+
+                    else if(FD_ISSET(newfd.socketfd, &rfds))
+                        FD_CLR(newfd.socketfd, &rfds);      
+                }
+
+                while((rtr = client_communicate_new(newfd, opt)) >= 0)
+                    if(newfd.stage > 9)
+                        break;
+                
+                if(rtr < 0) //error handling: close socketfd and reconnect
+                {
+                    close(newfd.socketfd);
+                    //reconnecting until succeed
+                    while(!client_reconnected(opt));
+                }
+                //rtr = 1, stage done
+                exit(0); 
+            }
+            else    //father
+            {
+                cur_num ++;
+                conn_num ++;
+            }
+        }
+        //all connection finished
+        else if(conn_num >= opt.num)
+            break;
+        //reach max_active_connections
+        else
+            continue;
+    }
+    return 0;
+}

@@ -21,8 +21,7 @@ int main(int argc, char *argv[]) {
     setsockopt(listener, SOL_TCP, TCP_KEEPCNT, (void *)&keepcount , sizeof(keepcount ));
 */
     if (opt.fork)
-        //loop_server_fork(listener, opt);
-        ;
+        loop_server_fork(listener, opt);
     else
         loop_server_nofork(listener, opt);
 

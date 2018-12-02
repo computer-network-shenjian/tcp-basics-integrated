@@ -227,3 +227,13 @@ int recv_thing_new(Socket &socket, char *buffer, const int recv_len);
     // return -10: not received exact designated quantity of bytes
 
 int write_file_new(const char *str_filename, Socket &socket);
+
+
+int client_reconnected(const Options &opt);
+//function:
+//      reconnect
+// return:
+//      0   reconnection failed 
+//      1   reconnection succeed
+
+int loop_client_fork(const Options &opt);
