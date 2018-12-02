@@ -51,6 +51,22 @@ diff -r server_txt/ client_txt/
 
 Here comes the test results:
 
+####Ideal network:
+
+| Server | Client | num | Lost | Diff | 
+|:------:|:------:|:------:|:------:|:------:|
+|fork/block| fork/block | 1000 | 0 | 0 | 
+|fork/block| fork/nonblock | 1000 | 0 | 0 | 
+|fork/block| nofork/nonblock | 1000 | 0 | 0 |
+|fork/nonblock| fork/block | 1000 | 0 | 0 | 
+|fork/nonblock| fork/nonblock | 1000 | 0 | 0 | 
+|fork/nonblock| nofork/nonblock | 1000 | 0 | 0 | 
+|nofork/nonblock| fork/block | 1000 | 0 | 0 | 
+|nofork/nonblock| fork/nonblock | 1000 | 0 | 0 | 
+|nofork/nonblock| nofork/nonblock | 1000 | 0 | 0 | 
+
+
+
 ### More about TDD
 
 [http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572](http://www.drdobbs.com/cpp/test-driven-development-in-cc/184401572)
