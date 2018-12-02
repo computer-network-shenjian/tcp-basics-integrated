@@ -51,7 +51,7 @@ diff -r server_txt/ client_txt/
 
 Here comes the test results:
 
-####Ideal network:
+* Local test results:
 
 | Server | Client | num | Lost | Diff | 
 |:------:|:------:|:------:|:------:|:------:|
