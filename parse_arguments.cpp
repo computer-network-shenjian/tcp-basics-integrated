@@ -18,7 +18,6 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
     //set default server ip 
     if(!is_client)
         opts.ip = "0.0.0.0";
-    
 		
     for (int i = 1; i < argc; ++i)
         arguments.push_back(argv[i]);
@@ -67,7 +66,7 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
     if(!opts.fork && opts.block)
         opts.block = false;
 
-    if (num_options > opts.num_options || num_options < is_client?1:2) {
+    if (num_options > opts.num_options || num_options < (is_client?2:1)) {
         std::cerr << "Wrong number of options. Seen " << num_options << " options\n";
         print_help(is_client);
         exit(1);
