@@ -9,6 +9,7 @@ int main(int argc, char *argv[]) {
     if (opt.fork)
         loop_client_fork(opt);
     else
-        //client_nofork(opt);
+        client_nofork(opt);
+        
     return 0;
 }
