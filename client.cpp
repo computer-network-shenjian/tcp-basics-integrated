@@ -4,11 +4,12 @@ using namespace std;
 
 int main(int argc, char *argv[]) {
     // process arguments
-    opt = parse_arguments(argc, argv, true);
+    Options opt = parse_arguments(argc, argv, true);
 
     if (opt.fork)
-        client_fork(opt);
+        loop_client_fork(opt);
     else
         client_nofork(opt);
+        
     return 0;
 }
