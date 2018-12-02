@@ -58,6 +58,8 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
             break;
         } else {
             std::cerr << "Unknown argument " << arg << std::endl;
+            print_help(is_client);
+            exit(1);
             break;
         }
     }
@@ -65,7 +67,7 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
     if(!opts.fork && opts.block)
         opts.block = false;
 
-    if (num_options > opts.num_options) {
+    if (num_options > opts.num_options || num_options < is_client?1:2) {
         std::cerr << "Wrong number of options. Seen " << num_options << " options\n";
         print_help(is_client);
         exit(1);
@@ -73,4 +75,3 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
 
     return opts;
 }
-
