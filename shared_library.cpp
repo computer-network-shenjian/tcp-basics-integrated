@@ -343,180 +343,180 @@ int recv_thing(const int socketfd, char *buffer, const Options &opt, const int r
     }
     return 0;       // all good
 }
-int client_communicate(int socketfd, const Options &opt) {
-    // return 0: all good
-    // return -1: select error
-    // return -2: time out
-    // return -3: peer offline
-    // return -4: not permitted to send
-    // return -5: ready_to_send error
-    // return -6: send error
-    // return -7: message sent is of wrong quantity of byte
-    // return -8: not permitted to recv
-    // return -9: ready_to_recv error
-    // return -10: not received exact designated quantity of bytes
-    // return -11: write_file error
-    // return -12: not received correct string
+// int client_communicate(int socketfd, const Options &opt) {
+//     // return 0: all good
+//     // return -1: select error
+//     // return -2: time out
+//     // return -3: peer offline
+//     // return -4: not permitted to send
+//     // return -5: ready_to_send error
+//     // return -6: send error
+//     // return -7: message sent is of wrong quantity of byte
+//     // return -8: not permitted to recv
+//     // return -9: ready_to_recv error
+//     // return -10: not received exact designated quantity of bytes
+//     // return -11: write_file error
+//     // return -12: not received correct string
 
-    // debug
-    std::cout << "client_communicate" << std::endl;
+//     // debug
+//     std::cout << "client_communicate" << std::endl;
 
-    char buffer[buffer_len] = {0};
-    int val_recv_thing = 0;
-    int val_send_thing = 0;
+//     char buffer[buffer_len] = {0};
+//     int val_recv_thing = 0;
+//     int val_send_thing = 0;
     
-    // 1. recv "StuNo" from server
-    val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_1));
-    if (val_recv_thing < 0) {
-        return val_recv_thing;
-    }
+//     // 1. recv "StuNo" from server
+//     val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_1));
+//     if (val_recv_thing < 0) {
+//         return val_recv_thing;
+//     }
 
-    std::cout << "client recv " << buffer << std::endl;
-    if (!same_string(buffer, STR_1, strlen(STR_1))) {
-        graceful_return("not received correct string", -12);
-    }
+//     std::cout << "client recv " << buffer << std::endl;
+//     if (!same_string(buffer, STR_1, strlen(STR_1))) {
+//         graceful_return("not received correct string", -12);
+//     }
 
-    // 2. send client student number
-    uint32_t h_stuNo = stu_no;
-    uint32_t n_stuNo = htonl(h_stuNo);
-    memcpy(buffer, &n_stuNo, sizeof(uint32_t));
-    val_send_thing = send_thing(socketfd, buffer, opt, sizeof(uint32_t));
-    if (val_send_thing < 0) {
-        return val_send_thing;
-    }
-    std::cout << "client send " << h_stuNo << std::endl;
+//     // 2. send client student number
+//     uint32_t h_stuNo = stu_no;
+//     uint32_t n_stuNo = htonl(h_stuNo);
+//     memcpy(buffer, &n_stuNo, sizeof(uint32_t));
+//     val_send_thing = send_thing(socketfd, buffer, opt, sizeof(uint32_t));
+//     if (val_send_thing < 0) {
+//         return val_send_thing;
+//     }
+//     std::cout << "client send " << h_stuNo << std::endl;
 
-    // 3. recv "pid" from server
-    val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_2));
-    if (val_recv_thing < 0) {
-        return val_recv_thing;
-    }
+//     // 3. recv "pid" from server
+//     val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_2));
+//     if (val_recv_thing < 0) {
+//         return val_recv_thing;
+//     }
 
-    std::cout << "client recv " << buffer << std::endl;
-    if (!same_string(buffer, STR_2, strlen(STR_2))) {
-        graceful_return("not received correct string", -12);
-    }
+//     std::cout << "client recv " << buffer << std::endl;
+//     if (!same_string(buffer, STR_2, strlen(STR_2))) {
+//         graceful_return("not received correct string", -12);
+//     }
 
-    // 4. send client pid
-    uint32_t n_pid;
-    pid_t pid = getpid();
-                    //if fork,   send: pid
-    if(opt.fork)
-        n_pid = htonl((uint32_t)pid); 
-    else            //if nofork, send: pid<<16 + socket_id
-        n_pid = htonl((uint32_t)((((int)pid)<<16)+socketfd));
-    int h_pid = ntohl(n_pid);
+//     // 4. send client pid
+//     uint32_t n_pid;
+//     pid_t pid = getpid();
+//                     //if fork,   send: pid
+//     if(opt.fork)
+//         n_pid = htonl((uint32_t)pid); 
+//     else            //if nofork, send: pid<<16 + socket_id
+//         n_pid = htonl((uint32_t)((((int)pid)<<16)+socketfd));
+//     int h_pid = ntohl(n_pid);
     
-    memcpy(buffer, &n_pid, sizeof(uint32_t));
-    val_send_thing = send_thing(socketfd, buffer, opt, sizeof(uint32_t));
-    if (val_send_thing < 0) {
-        return val_send_thing;
-    }
-    std::cout << "client send " << h_pid << std::endl;
+//     memcpy(buffer, &n_pid, sizeof(uint32_t));
+//     val_send_thing = send_thing(socketfd, buffer, opt, sizeof(uint32_t));
+//     if (val_send_thing < 0) {
+//         return val_send_thing;
+//     }
+//     std::cout << "client send " << h_pid << std::endl;
 
-    // 5. recv "TIME" from server
-    val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_3)+1);
-    if (val_recv_thing < 0) {
-        return val_recv_thing;
-    }
+//     // 5. recv "TIME" from server
+//     val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_3)+1);
+//     if (val_recv_thing < 0) {
+//         return val_recv_thing;
+//     }
 
-    std::cout << "client recv " << buffer << std::endl;
-    if (!same_string(buffer, STR_3, strlen(STR_3))) {
-        graceful_return("not received correct string", -12);
-    }
+//     std::cout << "client recv " << buffer << std::endl;
+//     if (!same_string(buffer, STR_3, strlen(STR_3))) {
+//         graceful_return("not received correct string", -12);
+//     }
 
-    // 6. send client current time(yyyy-mm-dd hh:mm:ss, 19 bytes)
-    char time_buf[20] = {0};
-    str_current_time(time_buf);
+//     // 6. send client current time(yyyy-mm-dd hh:mm:ss, 19 bytes)
+//     char time_buf[20] = {0};
+//     str_current_time(time_buf);
     
-    strncpy(buffer, time_buf, 19);
-    val_send_thing = send_thing(socketfd, buffer, opt, 19);
-    if (val_send_thing < 0) {
-        return val_send_thing;
-    }
-    std::cout << "client send " << buffer << std::endl;
+//     strncpy(buffer, time_buf, 19);
+//     val_send_thing = send_thing(socketfd, buffer, opt, 19);
+//     if (val_send_thing < 0) {
+//         return val_send_thing;
+//     }
+//     std::cout << "client send " << buffer << std::endl;
 
-    // 7. recv "str*****" from server and parse
-    val_recv_thing = recv_thing(socketfd, buffer, opt, 9);
-    if (val_recv_thing < 0) {
-        return val_recv_thing;
-    }
+//     // 7. recv "str*****" from server and parse
+//     val_recv_thing = recv_thing(socketfd, buffer, opt, 9);
+//     if (val_recv_thing < 0) {
+//         return val_recv_thing;
+//     }
 
-    std::cout << "client recv " << buffer << std::endl;
-    if (!same_string(buffer, "str", 3)) {
-        graceful_return("not received correct string", -12);
-    }
+//     std::cout << "client recv " << buffer << std::endl;
+//     if (!same_string(buffer, "str", 3)) {
+//         graceful_return("not received correct string", -12);
+//     }
     
-    int rand_length = parse_str(buffer);
-    if (rand_length == -1) {
-        graceful_return("not received correct string", -12);
-    }
+//     int rand_length = parse_str(buffer);
+//     if (rand_length == -1) {
+//         graceful_return("not received correct string", -12);
+//     }
 
-    std::cout << "rand number: " << rand_length << std::endl;
+//     std::cout << "rand number: " << rand_length << std::endl;
 
-    // 8. send random string in designated length
-    unsigned char client_string[buffer_len] = {0};
-    create_random_str(rand_length, client_string);
+//     // 8. send random string in designated length
+//     unsigned char client_string[buffer_len] = {0};
+//     create_random_str(rand_length, client_string);
 
-    memcpy(buffer, client_string, buffer_len);
+//     memcpy(buffer, client_string, buffer_len);
 
-    val_send_thing = send_thing(socketfd, buffer, opt, rand_length);
-    if (val_send_thing < 0) {
-        return val_send_thing;
-    }
+//     val_send_thing = send_thing(socketfd, buffer, opt, rand_length);
+//     if (val_send_thing < 0) {
+//         return val_send_thing;
+//     }
 
-    std::cout << "client send ok" << std::endl;
+//     std::cout << "client send ok" << std::endl;
 
-    // 9. recv "end" from server
-    val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_4));
-    if (val_recv_thing < 0) {
-        return val_recv_thing;
-    }
+//     // 9. recv "end" from server
+//     val_recv_thing = recv_thing(socketfd, buffer, opt, strlen(STR_4));
+//     if (val_recv_thing < 0) {
+//         return val_recv_thing;
+//     }
 
-    std::cout << "client recv " << buffer << std::endl;
-    if (!same_string(buffer, STR_4, strlen(STR_4))) {
-        graceful_return("not received correct string", -12);
-    }
+//     std::cout << "client recv " << buffer << std::endl;
+//     if (!same_string(buffer, STR_4, strlen(STR_4))) {
+//         graceful_return("not received correct string", -12);
+//     }
 
-    //close(socketfd);
-    std::cout << "client begin write file" << std::endl;
-    std::stringstream ss_filename;
-    ss_filename << "./client_txt/" << h_stuNo << '.' << h_pid << ".pid.txt";
-    std::string str_filename = ss_filename.str();
-    if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string, rand_length) == -1) {
-        graceful_return("write_file", -11);
-    }
-    std::cout << "client end write file" << std::endl;
+//     //close(socketfd);
+//     std::cout << "client begin write file" << std::endl;
+//     std::stringstream ss_filename;
+//     ss_filename << "./client_txt/" << h_stuNo << '.' << h_pid << ".pid.txt";
+//     std::string str_filename = ss_filename.str();
+//     if (write_file(str_filename.c_str(), h_stuNo, h_pid, time_buf, client_string, rand_length) == -1) {
+//         graceful_return("write_file", -11);
+//     }
+//     std::cout << "client end write file" << std::endl;
 
-    // return 0 as success
-    return 0;
-}
+//     // return 0 as success
+//     return 0;
+// }
 
-int client_nofork(const Options &opt) {
-    // initialize opt.num many connections and add them to the master set.
-    // exchange data on these connections, creating new connections when these connections
-    // close on network failure
+// int client_nofork(const Options &opt) {
+//     // initialize opt.num many connections and add them to the master set.
+//     // exchange data on these connections, creating new connections when these connections
+//     // close on network failure
 
-    // initialize connections
-    //fd_set master;
-    int sockets[2000];
-    for (int i = 0; i < (int)opt.num; i++) {
-        //FD_SET(create_connection(opt), &master);
-        sockets[i] = create_connection(opt);
-        cout << "DEBUG: sockets created and connected: " << i+1 << endl;
-    }
+//     // initialize connections
+//     //fd_set master;
+//     int sockets[2000];
+//     for (int i = 0; i < (int)opt.num; i++) {
+//         //FD_SET(create_connection(opt), &master);
+//         sockets[i] = create_connection(opt);
+//         cout << "DEBUG: sockets created and connected: " << i+1 << endl;
+//     }
 
-    // exchange data on these connections, creating new connections when these connections
-    // close on network failure
-    for (int i = 0; i < (int)opt.num; i++) {
-        int rv = client_communicate(sockets[i], opt);
-        if (rv < 0) {
-            sockets[i--] = create_connection(opt);
-            continue;
-        }
-    }
-    return 0;
-}
+//     // exchange data on these connections, creating new connections when these connections
+//     // close on network failure
+//     for (int i = 0; i < (int)opt.num; i++) {
+//         int rv = client_communicate(sockets[i], opt);
+//         if (rv < 0) {
+//             sockets[i--] = create_connection(opt);
+//             continue;
+//         }
+//     }
+//     return 0;
+// }
 
 //void handler(int sig) {
 //   int newfd;
@@ -540,40 +540,6 @@ pid_t r_wait(int * stat_loc)
     return revalue;
 }
 
-int client_fork(const Options &opt) {
-    prctl(PR_SET_PDEATHSIG, SIGHUP);
-    //signal(SIGUSR1, handler); // register handler to handle failed connections
-
-    for (unsigned int i = 0; i < opt.num; i++) {
-        // assume block
-        int fpid = fork();
-
-        int newfd;
-        switch (fpid) {
-            case 0:
-                // in child
-                prctl(PR_SET_PDEATHSIG, SIGHUP); 
-                newfd = create_connection(opt);
-                if (client_communicate(newfd, opt) < 0) {
-                    kill(getppid(), SIGUSR1);
-                }
-               // while(1) sleep(10); // hold pid to avoid log file name collition
-             //   sleep(1);
-               // printf("test\n");
-                return 0;
-            case -1:
-                // error
-                graceful("client_fork", -20);
-                break;
-            default:
-                // in parent
-                break;
-        }
-    }
-    while(r_wait(NULL) > 0);    //wait for all the subprocess.
-
-    return 0;
-}
 
 
 int server_accept_client(int listener, bool block, fd_set *master, int *fdmax, set<Socket> *set_data_socket, queue<Socket> *socket_q) {
@@ -652,15 +618,17 @@ int str_current_time(char *time_str) {
 }
 
 int create_random_str(const int length, unsigned char *random_string) {
-	unsigned char *p;
-    p = (unsigned char *)malloc(length+1);
-	srand((unsigned)time(NULL));
-	for(int i = 0; i <= length; i++) {
-		p[i] = rand() % 256;
-    }
-	p[length] = '\0';
-    memcpy(random_string, p, length+1);
-	return 0;
+    //unsigned char *p;
+    //p = (unsigned char *)malloc(length+1);
+    unsigned char p[buffer_len] = {0};
+    srand((unsigned)time(NULL));
+    for(int i = 0; i < length; i++) {
+    p[i] = rand() % 256;
+}
+    //p[length] = '\0';
+    //memcpy(random_string, p, length+1);
+    memcpy(random_string, p, length);
+    return 0;
 }
 
 bool same_string(const char *str1, const char *str2, const int cmp_len) {
@@ -856,7 +824,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client recv: " << buffer << std::endl;
+//            std::cout << "client recv: " << buffer << std::endl;
             if (!same_string(buffer, STR_1, strlen(STR_1))) {
                 graceful_return("not received correct string", -12);
             }
@@ -875,7 +843,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             else if (val_send_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client send: " << buffer << std::endl;
+//            std::cout << "client send: " << buffer << std::endl;
             stage_done(socket);
         }
         // 3. recv "pid" from server
@@ -891,7 +859,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client recv: " << buffer << std::endl;
+//            std::cout << "client recv: " << buffer << std::endl;
             if (!same_string(buffer, STR_2, strlen(STR_2))) {
                 graceful_return("not received correct string", -12);
             }
@@ -918,7 +886,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             else if (val_send_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client send: " << buffer << std::endl;
+//            std::cout << "client send: " << buffer << std::endl;
             stage_done(socket);
         }
         // 5. recv "TIME" from server
@@ -934,7 +902,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client recv: " << buffer << std::endl;
+ //           std::cout << "client recv: " << buffer << std::endl;
             if (!same_string(buffer, STR_3, strlen(STR_3))) {
                 graceful_return("not received correct string", -12);
             }
@@ -952,7 +920,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             else if (val_send_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client send: " << buffer << std::endl;
+//            std::cout << "client send: " << buffer << std::endl;
             stage_done(socket);
         }
         // 7. recv "str*****" from server and parse
@@ -968,7 +936,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client recv: " << buffer << std::endl;
+//            std::cout << "client recv: " << buffer << std::endl;
             if (!same_string(buffer, "str", 3)) {
                 graceful_return("not received correct string", -12);
             }
@@ -976,14 +944,17 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (socket.random < 32768) {
                 graceful_return("not received correct string", -12);
             }
-            std::cout << "rand number: " << socket.random << std::endl;
+//            std::cout << "rand number: " << socket.random << std::endl;
             stage_done(socket);
         }
         // 8. send random string in designated length
         case 8: {
             char buffer[buffer_len] = {0};
-            create_random_str(socket.random, socket.client_string);
-            memcpy(buffer, socket.client_string, socket.random);
+            //create_random_str(socket.random, socket.client_string);
+            //memcpy(buffer, socket.client_string, socket.random);
+            create_random_str(socket.random, (unsigned char*)buffer);
+            memcpy(socket.client_string, buffer, socket.random);
+
             int val_send_thing = send_thing_new(socket, buffer, socket.random);
             if (val_send_thing < 0) {
                 return(val_send_thing);
@@ -1007,18 +978,18 @@ int client_communicate_new(Socket &socket, const Options &opt) {
             if (val_recv_thing != 1) {
                 return 0;       // not all processed
             }
-            std::cout << "client recv: " << buffer << std::endl;
+//            std::cout << "client recv: " << buffer << std::endl;
             if (!same_string(buffer, STR_4, strlen(STR_4))) {
                 graceful_return("not received correct string", -12);
             }
-            std::cout << "client begin write file." << std::endl;
+//            std::cout << "client begin write file." << std::endl;
             std::stringstream ss_filename;
             ss_filename << "./client_txt/" << socket.stuNo << '.' << socket.pid << ".pid.txt";
             std::string str_filename = ss_filename.str();
             if (write_file_new(str_filename.c_str(), socket) == -1) {
                 graceful_return("write_file", -11);
             }
-            std::cout << "client end write file." << std::endl;
+//            std::cout << "client end write file." << std::endl;
             stage_done(socket);
         }                        
         default: {
@@ -1134,7 +1105,7 @@ int loop_server_fork(int listener, const Options &opt)
     //curnum: current children process num
     int curnum = 0;
     int rtr;    //return value
-    fd_set readfds, wfds;
+    fd_set readfds, rfds, wfds;
 
     while(1)    //server won't naturally end 
     {
@@ -1160,21 +1131,44 @@ int loop_server_fork(int listener, const Options &opt)
                 graceful("loop_server_fork fork", -20);
             else if(pid == 0)   //child 
             {
-                if(!opt.block)
+                if(!opt.block)  //noblock
                 {
-                    FD_ZERO(&wfds);
-                    FD_SET(newfd.socketfd, &wfds);
+                    rtr = 0;
+                    while(rtr >= 0)
+                    {
+                        if(newfd.stage > 9)
+                            break;
+                        //newfd.stage:
+                        //  odd:    send
+                        //  even:   recv 
+                        if(!(newfd.stage % 2))
+                        {
+                            FD_ZERO(&rfds);
+                            FD_SET(newfd.socketfd, &rfds);
+                            if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+                                graceful("loop_server_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &rfds))
+                                FD_CLR(newfd.socketfd, &rfds);  
+                        }
+                        else
+                        {
+                            FD_ZERO(&wfds);
+                            FD_SET(newfd.socketfd, &wfds);
+                            if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
+                                graceful("loop_server_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &wfds))
+                                FD_CLR(newfd.socketfd, &wfds);  
+                        }
 
-                    if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
-                        graceful("loop_server_fork select", -1);
-
-                    else if(FD_ISSET(newfd.socketfd, &wfds))
-                        FD_CLR(newfd.socketfd, &wfds);      
+                        rtr = server_communicate_new(newfd);
+                    }     
                 }
-
-                while((rtr = server_communicate_new(newfd)) >= 0)
-                    if(newfd.stage > 9)
-                        break;
+                else
+                {
+                    while((rtr = server_communicate_new(newfd)) >= 0)
+                        if(newfd.stage > 9)
+                            break;
+                }
                 
                 if(rtr < 0) //error handling, close socketfd
                     close(newfd.socketfd);
@@ -1193,36 +1187,62 @@ int loop_server_fork(int listener, const Options &opt)
 
 int client_reconnected(const Options &opt)
 {
+    //sleep 20ms
+    usleep(200000);
     int rtr;    //return value
-    fd_set rfds;
+    fd_set rfds, wfds;
 
     Socket newfd(-1);
     newfd.socketfd = create_connection(opt); 
 
-    if(!opt.block)
+    if(!opt.block)  //nonblock
     {
-        FD_ZERO(&rfds);
-        FD_SET(newfd.socketfd, &rfds);
-
-        if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
-            graceful("loop_client_fork select", -1);
-
-        else if(FD_ISSET(newfd.socketfd, &rfds))
-            FD_CLR(newfd.socketfd, &rfds);      
-    }
-
-    while((rtr = client_communicate_new(newfd, opt)) >= 0)
-        if(newfd.stage > 9)
-            break;
-        
-        if(rtr < 0) //error handling: close socketfd and reconnect
+        rtr = 0;
+        while(rtr >= 0)
         {
-            close(newfd.socketfd);
-            return 0;
+            if(newfd.stage > 9)
+                break;
+            //newfd.stage:
+            //  odd:    recv
+            //  even:   send 
+            if(newfd.stage % 2)
+            {
+                FD_ZERO(&rfds);
+                FD_SET(newfd.socketfd, &rfds);
+                if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+                    graceful("loop_client_fork select", -1);
+                else if(FD_ISSET(newfd.socketfd, &rfds))
+                    FD_CLR(newfd.socketfd, &rfds);  
+            }
+            else
+            {
+                FD_ZERO(&wfds);
+                FD_SET(newfd.socketfd, &wfds);
+                if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
+                    graceful("loop_client_fork select", -1);
+                else if(FD_ISSET(newfd.socketfd, &wfds))
+                    FD_CLR(newfd.socketfd, &wfds);  
+            }
+
+            rtr = client_communicate_new(newfd, opt);
         }
-        else
-            return 1;
+    }
+    else
+    {
+        while((rtr = client_communicate_new(newfd, opt)) >= 0)
+            if(newfd.stage > 9)
+                break;
+    }
+    
+    if(rtr < 0) //error handling: close socketfd and reconnect
+    {
+        close(newfd.socketfd);
+        return 0;
+    }
+    else
+        return 1;
 }
+
 
 
 int loop_client_fork(const Options &opt)
@@ -1231,7 +1251,7 @@ int loop_client_fork(const Options &opt)
     //cur_num: current children process num
     int cur_num = 0, conn_num = 0;
     int rtr;    //return value
-    fd_set rfds;
+    fd_set rfds, wfds;
 
     while(1)
     {
@@ -1248,22 +1268,45 @@ int loop_client_fork(const Options &opt)
                 graceful("loop_client_fork fork", -20);
             else if(pid == 0)   //child 
             {
-                if(!opt.block)
+                if(!opt.block)  //nonblock
                 {
-                    FD_ZERO(&rfds);
-                    FD_SET(newfd.socketfd, &rfds);
+                    rtr = 0;
+                    while(rtr >= 0)
+                    {
+                        if(newfd.stage > 9)
+                            break;
+                        //newfd.stage:
+                        //  odd:    recv
+                        //  even:   send 
+                        if(newfd.stage % 2)
+                        {
+                            FD_ZERO(&rfds);
+                            FD_SET(newfd.socketfd, &rfds);
+                            if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
+                                graceful("loop_client_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &rfds))
+                                FD_CLR(newfd.socketfd, &rfds);  
+                        }
+                        else
+                        {
+                            FD_ZERO(&wfds);
+                            FD_SET(newfd.socketfd, &wfds);
+                            if((rtr = select(newfd.socketfd+1, NULL, &wfds, NULL, NULL)) == -1)
+                                graceful("loop_client_fork select", -1);
+                            else if(FD_ISSET(newfd.socketfd, &wfds))
+                                FD_CLR(newfd.socketfd, &wfds);  
+                        }
 
-                    if((rtr = select(newfd.socketfd+1, &rfds, NULL, NULL, NULL)) == -1)
-                        graceful("loop_client_fork select", -1);
-
-                    else if(FD_ISSET(newfd.socketfd, &rfds))
-                        FD_CLR(newfd.socketfd, &rfds);      
+                        rtr = client_communicate_new(newfd, opt);
+                    }
+                }
+                else
+                {
+                    while((rtr = client_communicate_new(newfd, opt)) >= 0)
+                        if(newfd.stage > 9)
+                            break;
                 }
 
-                while((rtr = client_communicate_new(newfd, opt)) >= 0)
-                    if(newfd.stage > 9)
-                        break;
-                
                 if(rtr < 0) //error handling: close socketfd and reconnect
                 {
                     close(newfd.socketfd);
