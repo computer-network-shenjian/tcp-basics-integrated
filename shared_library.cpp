@@ -73,12 +73,14 @@ int get_listener(const Options &opt) {
 // }
 
 
-void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> *socket_q) {
+int remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_socket, queue<Socket> *socket_q) {
     // TODO: remove from the STL set also
     set<Socket> newset;
+    int num_removed = 0;
     for (auto s: set_data_socket) {
         if (!s.has_been_active) {
             FD_CLR(s.socketfd, &master);
+	    num_removed++;
         } else {
             newset.insert(s);
         }
@@ -88,6 +90,7 @@ void remove_dead_connections(fd_set &master, int &fdmax, set<Socket> &set_data_s
     if (socket_q != nullptr) { // optionally fill up sets
         fill_up_sets(master, fdmax, set_data_socket, *socket_q);
     }
+    return num_removed;
 }
 
 // template <class T>
@@ -575,7 +578,7 @@ int client_nofork(const Options &opt) {
                     break;
                 case 0:
                     // timeout, close sockets that haven't responded in an interval, exept for listener
-                    remove_dead_connections(master, fdmax, set_data_socket, nullptr);
+                    num_current_conn -= remove_dead_connections(master, fdmax, set_data_socket, nullptr);
                     tv = {timeout_seconds, timeout_microseconds}; // set a 2 second client timeout
                     for (auto socket_it = set_data_socket.begin(); socket_it != set_data_socket.end(); socket_it++) {
                         // reset has been active
