@@ -1,0 +1,170 @@
+#include "shared_library.hpp"
+
+using namespace std;
+
+
+struct Socket
+{
+	int socketfd;
+	int stage;	//stage start from 0
+};
+
+//function:
+//
+//          maintain fdset in a size of MAX_NUM(MAX_NUM = 200)
+//          close error socket(returned from lower layer)
+//          calling server_communicate(Socket socket)
+//precondition:
+//			
+//postcondition:
+//			pop() the socketfd which correctly interacted with client from socket_q,
+//			and close the socketfd which failed interacting with client;
+//			return 0 when socket_q is empty
+//			return -1 when encountered wrong sockfd
+
+// int loop_server_nofork(int listener, const Options &opt){
+// 	if(socket_q.empty())
+// 		return 0;
+
+// 	fd_set fds;
+// 	int MAX_NUM = 200, set_cnt = 0;
+// 	int fdmax;          // maximum file descriptor number 
+// 	int sockfd;
+// 	FD_ZERO(&fds);
+    
+//     while(set_cnt < MAX_NUM && !socket_q.empty())
+//     {
+// 	    if((sockfd = socket_q.front()) < 0)
+// 	    	graceful_return("wrong sockfd", -1);
+// 	    socket_q.pop();
+
+// 		FD_SET(sockfd, &fds);
+
+
+// 		while(socket_q.empty())
+// 	}
+// }
+
+
+
+
+//function:
+//		wait() child process if and only if receive SIGCHLD
+//return value:
+//		0	no exit child
+//		1   found exit child
+int check_child()
+{   
+	pid_t pid;   
+	//set option=WNOHANG to avoid blocking in waitpid()
+	//waitpid would return immediately if no exit child 
+	if((pid = waitpid(-1, NULL, WNOHANG)) == -1)
+		graceful("check_SIGCHLD waitpid", -1);
+
+	//no exit child
+	else if(pid == 0)	
+		return 0;
+
+	//found exit child
+	else if(pid > 0)
+		return 1;
+}
+
+int loop_server_fork(int listener, const Options &opt)
+{
+	//create SIGCHID handler
+//	signal(SIGCHLD, sigchld_handler);
+
+
+	pid_t pid;
+	//curnum: current children process num
+	int MAX_NUM = 200, curnum = 0;
+	int rtr;	//return value
+    fd_set readfds;
+
+	while(1)	//server won't end naturally 
+	{
+		//curnum-1 when any child exit
+		if((rtr = check_child()) == 1)
+			curnum --;
+
+		if(curnum <= MAX_NUM)
+		{
+			if(!opt.block)	//nonblock
+			{
+	            FD_ZERO(&readfds);
+	            FD_SET(listener, &readfds);
+	            if((rtr = select(listener + 1, &readfds, NULL, NULL, NULL)) == -1)
+	            	graceful("loop_server_fork select", -20);
+	        }
+            Socket newfd;
+	        newfd.socketfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
+	        
+	        pid = fork();
+	        if(pid == -1)
+	        	graceful("loop_server_fork fork", -20);
+	        
+	        else if(pid == 0)	//child 
+	        {
+	        	//close error sockfd
+	        	/*
+	        		need to replace with new server_communicate_fork()
+	        	*/
+	        	if(server_communicate_fork(newfd, opt) < 0)
+	        		close(newfd.socketfd);
+	            /*
+                    need error handling!
+                */
+	        	exit(0); //exit directlly with no error
+	        }
+	        else	//father
+	        	curnum ++;
+	    }
+	    //else, wait until socket_q.size() < MAX_NUM
+	    else	
+	    	continue;
+	}
+}
+
+
+int server_accept_client(int listener, bool block, fd_set *master, int *fdmax) {
+    // Accept connections from listener and insert them to the fd_set.
+
+    struct sockaddr_storage remoteaddr; // client address
+    socklen_t addrlen = sizeof(remoteaddr);
+
+    if((newfd = accept(listener, (sockaddr *) &remoteaddr, &addrlen)) == -1)
+    	graceful("server_accept_new_client", 7);
+    else 
+    {
+        // set non-blocking connection
+        if (!block) 
+        {
+            int val = fcntl(newfd, F_GETFL, 0);
+            if (val < 0) {
+                close(newfd);
+                graceful_return("fcntl, GETFL", -2);
+            }
+            if (fcntl(newfd, F_SETFL, val|O_NONBLOCK) < 0) {
+                close(newfd);
+                graceful_return("fcntl, SETFL", -3);
+            }            
+        }
+
+        if (master != NULL && fdmax != NULL)
+         { // if using select
+            // add to the set
+            FD_SET(newfd, master); // add to master set
+            if (newfd > *fdmax)      // keep track of the max
+                *fdmax = newfd;
+        }
+
+        char remoteIP[INET6_ADDRSTRLEN];
+        std::cout << "New connection from " << inet_ntop(remoteaddr.ss_family,
+                                            get_in_addr((struct sockaddr*) &remoteaddr),
+                                            remoteIP, INET6_ADDRSTRLEN)
+                << " on socket " << newfd << std::endl;
+    }
+    return newfd;
+}
+

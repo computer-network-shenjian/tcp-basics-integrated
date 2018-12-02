@@ -117,7 +117,12 @@ int get_listener(const Options &opt);
     // Precondition: the port field and block field of opt is properly set
     // Postcondition: an ipv4 socket that is initialized, bound, and set to listening to all interfaces is returned
 
-//int loop_server_fork(int listener, const Options &opt);
+int check_child();     
+//function:
+//      wait() child process if and only if receive SIGCHLD
+
+
+int loop_server_fork(int listener, const Options &opt);
     // can be either blocking or non-blocking
 
 

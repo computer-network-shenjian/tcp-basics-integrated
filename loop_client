@@ -1,0 +1,70 @@
+#include "shared_library.hpp"
+
+using namespace std;
+
+int main()
+
+
+int loop_client_fork(const Options &opt)
+{
+	Socket newfd;
+	pid_t pid;
+	//curnum: current children process num
+	int curnum = 0;
+	int rtr;	//return value
+
+	while(1)
+	{
+		//error handling:
+		//		reconnect exit child
+		//		does it matter to reuse the disconnected socketfd ??
+		while((rtr = check_child()) == 1)
+		{
+			curnum --;
+			/*
+				reconnect!
+			*/
+		}
+
+		if(curnum < opt.num)
+		{
+	        newfd.socketfd = client_connect_server(opt.block);
+	      	
+	      	//stage starts from 0 or 1?? 
+	        newfd.stage = 0;
+	        
+	        pid = fork();
+	        if(pid == -1)
+	        	graceful("loop_server_fork fork", -20);
+	        
+	        else if(pid == 0)	//child 
+	        {
+	        	//close error sockfd
+	        	/*
+	        		need to replace with new client_communicate_fork()
+	        	*/
+	        	
+	        	/*
+	        		error handling:
+	        			if returns without 0 or 1, exit ?
+	        	*/
+	        }
+	        else	//father
+	        	curnum ++;
+	    }
+	    //all connection succeed! 
+	    else	
+	    	break;
+	}
+	return 0;
+}
+
+
+int client_connect_server(bool block)
+{
+	flags = fcntl(sockfd,F_GETFL,0);
+	fcntl(sockfd,F_SETFL,flags|O_NONBLOCK);
+	/*
+		handle nonblock/block
+	*/
+}

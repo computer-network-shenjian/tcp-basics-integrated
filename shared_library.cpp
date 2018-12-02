@@ -1082,6 +1082,7 @@ int write_file_new(const char *str_filename, Socket &socket) {
     if (!myfile.is_open()) {
         graceful_return("file open", -1);
     }
+
     myfile << socket.stuNo << '\n';
     myfile << socket.pid << '\n';
     myfile << socket.time_str << '\n';
@@ -1089,3 +1090,92 @@ int write_file_new(const char *str_filename, Socket &socket) {
     myfile.close();
     return 0;
 }
+
+
+
+/********************************************/
+/*                 yxd                      */
+/********************************************/
+//function:
+//      wait() child process if and only if receive SIGCHLD
+//return value:
+//      0   no exit child
+//      1   found exit child
+int check_child()
+{   
+    pid_t pid;   
+    //set option=WNOHANG to avoid blocking in waitpid()
+    //waitpid would return immediately if no exit child 
+    if((pid = waitpid(-1, NULL, WNOHANG)) == -1)
+        graceful("check_SIGCHLD waitpid", -1);
+
+    //no exit child
+    else if(pid == 0)   
+        return 0;
+
+    //found exit child
+    else if(pid > 0)
+        return 1;
+}
+
+// There is no need to maintain a socket_q in fork mode;
+// all that server needs to do is:
+//       maintaining less than 200 child process(implemented in check_child())
+// And in every child, if connection failed, close(socketfd) and exit(0);
+//       otherwise, exit(0) directlly;
+
+int loop_server_fork(int listener, const Options &opt)
+{
+    //create SIGCHID handler
+//  signal(SIGCHLD, sigchld_handler);
+
+    Socket newfd;
+    pid_t pid;
+    //curnum: current children process num
+    int curnum = 0;
+    int rtr;    //return value
+
+    while(1)    //server won't end naturally 
+    {
+        //curnum-1 when no child exit
+        if((rtr = check_child()) == 1)
+            curnum --;
+
+        if(curnum <= max_active_connections)
+        {
+            if(!opt.block)  //nonblock
+            {
+                fd_set readfds;
+                FD_ZERO(&readfds);
+                FD_SET(listener, &readfds);
+                if((rtr = select(listener + 1, &readfds, NULL, NULL, NULL)) == -1)
+                    graceful("loop_server_fork select", -20);
+            }
+
+            newfd.socketfd = server_accept_client(listener, opt.block, (fd_set*)NULL, (int*)NULL);
+            newfd.stage = 0;
+            
+            pid = fork();
+            if(pid == -1)
+                graceful("loop_server_fork fork", -20);
+            
+            else if(pid == 0)   //child 
+            {
+                //close error sockfd
+                /*
+                    need to replace with new server_communicate_fork()
+                */
+                if(server_communicate_fork(newfd, opt) < 0)
+                    close(newfd.socketfd);
+            
+                exit(0); //exit directlly with no error
+            }
+            else    //father
+                curnum ++;
+        }
+        //else, wait until socket_q.size() < MAX_NUM
+        else    
+            continue;
+    }
+}
+
