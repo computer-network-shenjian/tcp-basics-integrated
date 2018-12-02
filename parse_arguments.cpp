@@ -55,6 +55,8 @@ Options parse_arguments(int argc, char **argv, bool is_client=false) {
             num_options++;
             continue;
         } else if (arg == "-h" || arg == "--help") {
+	    print_help(is_client);
+	    exit(1);
             break;
         } else {
             std::cerr << "Unknown argument " << arg << std::endl;
