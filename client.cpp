@@ -7,8 +7,10 @@ int main(int argc, char *argv[]) {
     Options opt = parse_arguments(argc, argv, true);
 
     if (opt.fork)
-        client_fork(opt);
+        //client_fork(opt);
+        ;
     else
         client_nofork(opt);
+        
     return 0;
 }
