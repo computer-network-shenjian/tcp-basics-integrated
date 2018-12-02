@@ -167,7 +167,6 @@ void loop_server_nofork(int listener, const Options &opt) {
                             // after a successful communication
                             // remove from the set if done
                             set_data_socket.erase(socket_it);
-                            cout << "DEBUG: segmentation fault 1\n";
 
                             if (comm_rv == 1 && socket.stage == 10) {
                                 cout << "removing a finished socket...\n";
@@ -176,12 +175,9 @@ void loop_server_nofork(int listener, const Options &opt) {
                                 break;
                             } else {
                                 // re-insert socket into the set
-                                cout << "DEBUG: segmentation fault 2\n";
                                 Socket newsocket = socket;
-                                cout << "DEBUG: segmentation fault 3\n";
                                 newsocket.has_been_active = true;
                                 set_data_socket.insert(newsocket);
-                                cout << "break\n";
                                 break;
                             }
                         }
@@ -1101,7 +1097,7 @@ int client_communicate_new(Socket &socket, const Options &opt) {
         // 8. send random string in designated length
         case 8: {
             char buffer[buffer_len] = {0};
-            create_random_str(socket.random, socket.client_string);
+            create_random_str(socket.random, (unsigned char*)buffer);
             memcpy(buffer, socket.client_string, socket.random);
             int val_send_thing = send_thing_new(socket, buffer, socket.random);
             if (val_send_thing < 0) {
