@@ -51,21 +51,37 @@ diff -r server_txt/ client_txt/
 
 Here comes the test results:
 
-* Local test results:
+* Local test(`self-my client` to `self-my server`) results:
 
-| Server | Client | num | Lost | Diff | 
+| Server | Client | num | Lost | Diff |
 |:------:|:------:|:------:|:------:|:------:|
-|fork/block| fork/block | 1000 | 0 | 0 | 
-|fork/block| fork/nonblock | 1000 | 0 | 0 | 
+|fork/block| fork/block | 1000 | 0 | 0 |
+|fork/block| fork/nonblock | 1000 | 0 | 0 |
 |fork/block| nofork/nonblock | 1000 | 0 | 0 |
-|fork/nonblock| fork/block | 1000 | 0 | 0 | 
-|fork/nonblock| fork/nonblock | 1000 | 0 | 0 | 
-|fork/nonblock| nofork/nonblock | 1000 | 0 | 0 | 
-|nofork/nonblock| fork/block | 1000 | 0 | 0 | 
-|nofork/nonblock| fork/nonblock | 1000 | 0 | 0 | 
-|nofork/nonblock| nofork/nonblock | 1000 | 0 | 0 | 
+|fork/nonblock| fork/block | 1000 | 0 | 0 |
+|fork/nonblock| fork/nonblock | 1000 | 0 | 0 |
+|fork/nonblock| nofork/nonblock | 1000 | 0 | 0 |
+|nofork/nonblock| fork/block | 1000 | 0 | 0 |
+|nofork/nonblock| fork/nonblock | 1000 | 0 | 0 |
+|nofork/nonblock| nofork/nonblock | 1000 | 0 | 0 |
 
+* Online test(`self-my client` to `self-SJ's server`) results:
+  * server: fork/block; client: fork/nonblock: client prompts `loop_client_fork select: Invalid argument`, server no prompt. Then client/server lose 1 each, while no diff occurs.
 
+| Server | Client | num | Lost | Diff |
+|:------:|:------:|:------:|:------:|:------:|
+|fork/block| fork/block | 1000 | 0 | 0 |
+|fork/block| fork/nonblock | 1000 | 1 | 0 |
+|fork/block| nofork/nonblock | 1000 | 0 | 0 |
+|fork/nonblock| fork/block | 1000 | 0 | 0 |
+|fork/nonblock| fork/nonblock | 1000 | 0 | 0 |
+|fork/nonblock| nofork/nonblock | 1000 | 0 | 0 |
+|nofork/nonblock| fork/block | 1000 | 0 | 0 |
+|nofork/nonblock| fork/nonblock | 1000 | 0 | 0 |
+|nofork/nonblock| nofork/nonblock | 1000 | 0 | 0 |
+
+* Online test(`self-my client` to `other's-SJ's server`, vice versa) results:
+  * pending.
 
 ### More about TDD
 
